@@ -62,17 +62,69 @@ export function OnboardingFlow() {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
-  // OTP State
-  const [otpDigits] = useState(['4', '8', '2', '1']);
-  const [enteredOtp, setEnteredOtp] = useState('');
+  // OTP State (6 Digits for Firebase SMS & 4 Digits for Test Codes)
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const otpInputRefs = React.useRef([]);
   const [newResetPass, setNewResetPass] = useState('');
   const [confirmResetPass, setConfirmResetPass] = useState('');
   const [resetOtpSent, setResetOtpSent] = useState(false);
+  const [resetOtpCode, setResetOtpCode] = useState('');
+
+  const handleDigitChange = (index, value) => {
+    const clean = value.replace(/\D/g, '');
+    const newDigits = [...otpDigits];
+
+    if (clean.length > 1) {
+      // Handle paste of full code
+      const pastedChars = clean.slice(0, 6).split('');
+      for (let i = 0; i < 6; i++) {
+        newDigits[i] = pastedChars[i] || '';
+      }
+      setOtpDigits(newDigits);
+      const nextIndex = Math.min(pastedChars.length, 5);
+      otpInputRefs.current[nextIndex]?.focus();
+      return;
+    }
+
+    newDigits[index] = clean;
+    setOtpDigits(newDigits);
+
+    // Auto move to next input if filled
+    if (clean && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasteData) {
+      const newDigits = ['', '', '', '', '', ''];
+      for (let i = 0; i < pasteData.length; i++) {
+        newDigits[i] = pasteData[i];
+      }
+      setOtpDigits(newDigits);
+      const focusIdx = Math.min(pasteData.length, 5);
+      otpInputRefs.current[focusIdx]?.focus();
+    }
+  };
+
+  const autofillTestOtp = () => {
+    setOtpDigits(['4', '8', '2', '1', '', '']);
+    setAuthError('');
+  };
 
   // 1. Submit Registration Form -> Go to Step 4 (OTP)
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
     if (!formData.fullName.trim()) {
       setAuthError(language === 'hi' ? 'कृपया अपना नाम दर्ज करें' : 'Please enter your full name');
       return;
@@ -87,13 +139,17 @@ export function OnboardingFlow() {
     }
 
     setLoading(true);
+    setOtpDigits(['', '', '', '', '', '']);
+
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(formData.phone);
       setLoading(false);
       if (res.success) {
         submitRegistrationAndRequestOtp(formData);
       } else {
-        setAuthError(res.error || 'Failed to send SMS OTP');
+        // Even if SMS fails (e.g. rate limit), allow proceeding with test code
+        submitRegistrationAndRequestOtp(formData);
+        setAuthError(res.error || 'SMS OTP failed. You can use Test OTP 4821 below.');
       }
     } else {
       setLoading(false);
@@ -102,9 +158,10 @@ export function OnboardingFlow() {
   };
 
   // 2. Submit Password Login
-  const handlePasswordLoginSubmit = (e) => {
+  const handlePasswordLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
     if (!loginPhone || loginPhone.length < 10) {
       setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
       return;
@@ -114,7 +171,9 @@ export function OnboardingFlow() {
       return;
     }
 
-    const res = loginWithPassword(loginPhone, loginPassword);
+    setLoading(true);
+    const res = await loginWithPassword(loginPhone, loginPassword);
+    setLoading(false);
     if (!res.success) {
       setAuthError(res.error);
     }
@@ -124,12 +183,15 @@ export function OnboardingFlow() {
   const handleOtpLoginRequest = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
     if (!loginPhone || loginPhone.length < 10) {
       setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
       return;
     }
 
     setLoading(true);
+    setOtpDigits(['', '', '', '', '', '']);
+
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(loginPhone);
       setLoading(false);
@@ -139,7 +201,11 @@ export function OnboardingFlow() {
           isOtpLogin: true
         });
       } else {
-        setAuthError(res.error || 'Failed to send SMS OTP');
+        submitRegistrationAndRequestOtp({
+          phone: loginPhone,
+          isOtpLogin: true
+        });
+        setAuthError(res.error || 'SMS failed. You can use Test OTP 4821 below.');
       }
     } else {
       setLoading(false);
@@ -159,6 +225,7 @@ export function OnboardingFlow() {
   const handleForgotOtpRequest = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthSuccess('');
     if (!loginPhone || loginPhone.length < 10) {
       setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
       return;
@@ -168,18 +235,18 @@ export function OnboardingFlow() {
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(loginPhone);
       setLoading(false);
+      setResetOtpSent(true);
       if (res.success) {
-        setResetOtpSent(true);
         setAuthSuccess(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
       } else {
-        setAuthError(res.error || 'Failed to send SMS');
+        setAuthError(res.error || 'SMS failed. You can use Test OTP 4821.');
       }
     } else {
       setLoading(false);
       const res = requestPasswordReset(loginPhone);
       if (res.success) {
         setResetOtpSent(true);
-        setEnteredOtp('4821');
+        setResetOtpCode('4821');
         setAuthSuccess(language === 'hi' ? 'OTP भेजा गया: 4821' : 'Reset OTP Sent: 4821');
       } else {
         setAuthError(res.error);
@@ -201,17 +268,17 @@ export function OnboardingFlow() {
     }
 
     setLoading(true);
-    if (isFirebaseConfigured) {
-      const res = await verifyFirebasePhoneOtp(enteredOtp);
+    if (isFirebaseConfigured && window.confirmationResult) {
+      const res = await verifyFirebasePhoneOtp(resetOtpCode);
       setLoading(false);
       if (res.success) {
-        resetPasswordWithOtp(loginPhone, '4821', newResetPass);
+        resetPasswordWithOtp(loginPhone, resetOtpCode || '4821', newResetPass);
       } else {
         setAuthError(res.error || 'Invalid OTP code');
       }
     } else {
       setLoading(false);
-      const res = resetPasswordWithOtp(loginPhone, enteredOtp || '4821', newResetPass);
+      const res = await resetPasswordWithOtp(loginPhone, resetOtpCode || '4821', newResetPass);
       if (!res.success) {
         setAuthError(res.error);
       }
@@ -221,18 +288,48 @@ export function OnboardingFlow() {
   // Step 4 OTP verify
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
+    setAuthError('');
+    const code = otpDigits.join('').trim();
+
+    if (!code || code.length < 4) {
+      setAuthError(language === 'hi' ? 'कृपया पूरा OTP कोड दर्ज करें (4 से 6 अंक)' : 'Please enter the complete OTP code (4-6 digits)');
+      return;
+    }
+
     setLoading(true);
-    if (isFirebaseConfigured) {
-      const res = await verifyFirebasePhoneOtp(enteredOtp);
+    if (isFirebaseConfigured && window.confirmationResult) {
+      const res = await verifyFirebasePhoneOtp(code);
       setLoading(false);
       if (res.success) {
-        verifyOtpAndComplete('4821');
+        verifyOtpAndComplete(code);
       } else {
-        setAuthError(res.error || 'Invalid OTP');
+        setAuthError(res.error || 'Invalid OTP code. Please check your SMS or use Test Code 4821.');
       }
     } else {
       setLoading(false);
-      verifyOtpAndComplete(enteredOtp || '4821');
+      verifyOtpAndComplete(code);
+    }
+  };
+
+  // Resend OTP in Step 4
+  const handleResendOtp = async () => {
+    setAuthError('');
+    setAuthSuccess('');
+    const phoneToUse = formData.phone || loginPhone;
+    if (!phoneToUse) return;
+
+    setLoading(true);
+    if (isFirebaseConfigured) {
+      const res = await sendFirebasePhoneOtp(phoneToUse);
+      setLoading(false);
+      if (res.success) {
+        setAuthSuccess(language === 'hi' ? 'नया SMS OTP भेजा गया है' : 'New SMS OTP Sent!');
+      } else {
+        setAuthError(res.error || 'Could not resend SMS. You can use Test OTP 4821.');
+      }
+    } else {
+      setLoading(false);
+      setAuthSuccess(language === 'hi' ? 'नया टेस्ट OTP: 4821' : 'New Test OTP: 4821');
     }
   };
 
@@ -679,7 +776,7 @@ export function OnboardingFlow() {
                     {/* Simulated SMS notification */}
                     <div 
                       className="sms-simulation-box"
-                      onClick={() => setEnteredOtp('4821')}
+                      onClick={() => setResetOtpCode('4821')}
                       style={{ marginBottom: '0.85rem', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700', fontSize: '0.8rem', color: '#166534' }}>
@@ -692,14 +789,16 @@ export function OnboardingFlow() {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">4-Digit Reset OTP *</label>
+                      <label className="form-label">{language === 'hi' ? 'OTP कोड (4-6 अंक) *' : 'Reset OTP Code (4-6 digits) *'}</label>
                       <input
                         type="text"
+                        inputMode="numeric"
                         className="form-input"
-                        style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.2rem', fontWeight: '800' }}
-                        maxLength={4}
-                        value={enteredOtp}
-                        onChange={(e) => setEnteredOtp(e.target.value)}
+                        style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.2rem', fontWeight: '800' }}
+                        maxLength={6}
+                        placeholder="4821"
+                        value={resetOtpCode}
+                        onChange={(e) => setResetOtpCode(e.target.value.replace(/\D/g, ''))}
                         required
                       />
                     </div>
@@ -770,64 +869,94 @@ export function OnboardingFlow() {
               <span>{t('stepBack')}</span>
             </button>
 
-            <div style={{ textAlign: 'center', margin: '0.75rem 0 1.5rem' }}>
+            <div style={{ textAlign: 'center', margin: '0.75rem 0 1.25rem' }}>
               <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-full)', background: '#dcfce7', color: 'var(--primary-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
                 <Smartphone size={28} />
               </div>
               <h2 className="step-main-title">{t('step4Title')}</h2>
               <p className="step-sub-title">
-                {t('otpSentTo')} <strong>{formData.phone || loginPhone || '9876543210'}</strong>
+                {t('otpSentTo')} <strong>+91 {formData.phone || loginPhone || '9876543210'}</strong>
               </p>
             </div>
+
+            {/* Error Message Display inside Step 4 */}
+            {authError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '1rem' }}>
+                ⚠️ {authError}
+              </div>
+            )}
+
+            {authSuccess && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '1rem' }}>
+                ✅ {authSuccess}
+              </div>
+            )}
 
             {/* Simulated SMS Notification Banner */}
             <div 
               className="sms-simulation-box"
-              onClick={() => setEnteredOtp('4821')}
+              onClick={autofillTestOtp}
+              style={{ cursor: 'pointer', marginBottom: '1.25rem' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '700', fontSize: '0.82rem', color: '#166534', marginBottom: '0.2rem' }}>
-                <Sparkles size={14} />
-                <span>{t('simulatedSms')} <strong>4821</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700', fontSize: '0.82rem', color: '#166534' }}>
+                  <Sparkles size={14} />
+                  <span>{language === 'hi' ? 'टेस्ट OTP कोड:' : 'Instant Test Code:'} <strong>4821</strong></span>
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--primary-forest)', fontWeight: '700', textDecoration: 'underline' }}>
+                  👉 {language === 'hi' ? 'ऑटो-भरें' : 'Click to Autofill'}
+                </span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--primary-forest)' }}>
-                👉 {t('clickToAutofill')}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {language === 'hi' 
+                  ? 'यदि मोबाइल पर SMS नहीं आया या दर सीमा (Rate Limit) है, तो 4821 से तुरंत आगे बढ़ें।' 
+                  : 'If SMS quota is exhausted or delayed, click above to test instantly.'}
               </div>
             </div>
 
             <form onSubmit={handleOtpSubmit}>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', margin: '1.5rem 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '1.25rem 0 1.5rem', flexWrap: 'nowrap' }}>
                 {otpDigits.map((digit, index) => (
                   <input
                     key={index}
+                    ref={(el) => (otpInputRefs.current[index] = el)}
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={1}
-                    className="otp-digit-input"
-                    value={enteredOtp ? enteredOtp[index] || '' : digit}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEnteredOtp(prev => {
-                        const arr = (prev || '4821').split('');
-                        arr[index] = val;
-                        return arr.join('');
-                      });
-                    }}
+                    className={`otp-digit-input ${digit ? 'has-value' : ''}`}
+                    value={digit}
+                    onChange={(e) => handleDigitChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
+                    placeholder="•"
+                    autoFocus={index === 0}
                   />
                 ))}
               </div>
 
-              <button type="submit" className="btn-primary" style={{ padding: '0.9rem' }}>
+              <button type="submit" className="btn-primary" style={{ padding: '0.9rem' }} disabled={loading}>
                 <CheckCircle2 size={18} />
-                <span>{t('verifyAndProceed')}</span>
+                <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyAndProceed')}</span>
               </button>
             </form>
 
-            <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
               <button
                 type="button"
-                onClick={() => alert(language === 'hi' ? 'नया OTP भेजा गया: 4821' : 'New OTP Sent: 4821')}
+                onClick={() => setOnboardingStep(3)}
                 style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '600' }}
               >
-                {t('resendOtp')}
+                ← {language === 'hi' ? 'नंबर बदलें' : 'Change Phone'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={loading}
+                style={{ fontSize: '0.82rem', color: 'var(--primary-forest)', fontWeight: '700' }}
+              >
+                🔄 {t('resendOtp')}
               </button>
             </div>
           </div>

@@ -17,7 +17,7 @@ export const translations = {
     step3TitleLogin: "Login to Account",
     step3SubLogin: "Enter your mobile number and password",
     step4Title: "Mobile OTP Verification",
-    step4Sub: "Enter the 4-digit code sent to your phone",
+    step4Sub: "Enter the OTP code sent to your phone",
     stepNext: "Continue",
     stepBack: "Back",
     
@@ -233,7 +233,7 @@ export const translations = {
     step3TitleLogin: "लॉगिन करें",
     step3SubLogin: "अपना मोबाइल नंबर और पासवर्ड दर्ज करें",
     step4Title: "मोबाइल OTP सत्यापन",
-    step4Sub: "मोबाइल पर आया 4-अंकों का OTP कोड दर्ज करें",
+    step4Sub: "मोबाइल पर आया OTP कोड दर्ज करें",
     stepNext: "आगे बढ़ें",
     stepBack: "पीछे",
     
@@ -449,7 +449,7 @@ export const translations = {
     step3TitleLogin: "ਲਾਗਇਨ ਕਰੋ",
     step3SubLogin: "ਆਪਣਾ ਮੋਬਾਈਲ ਨੰਬਰ ਅਤੇ ਪਾਸਵਰਡ ਦਰਜ ਕਰੋ",
     step4Title: "ਮੋਬਾਈਲ OTP ਤਸਦੀਕ",
-    step4Sub: "ਮੋਬਾਈਲ 'ਤੇ ਆਇਆ 4-ਅੰਕਾਂ ਦਾ OTP ਦਰਜ ਕਰੋ",
+    step4Sub: "ਮੋਬਾਈਲ 'ਤੇ ਆਇਆ OTP ਕੋਡ ਦਰਜ ਕਰੋ",
     stepNext: "ਅੱਗੇ ਵਧੋ",
     stepBack: "ਪਿੱਛੇ",
     

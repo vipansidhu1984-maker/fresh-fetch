@@ -114,27 +114,47 @@ export async function sendFirebasePhoneOtp(phone) {
     return { success: true, confirmationResult, phone: formattedPhone };
   } catch (error) {
     console.error("Firebase sendPhoneOtp error:", error);
-    return { success: false, error: error.message || "Failed to send SMS OTP" };
+    let errorMsg = error.message || "Failed to send SMS OTP";
+    if (error.code === 'auth/too-many-requests') {
+      errorMsg = "SMS rate limit reached. Click '⚡ Use Test OTP (4821)' to test immediately without waiting.";
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMsg = "Phone Auth is disabled in Firebase Console. Please enable Phone sign-in under Authentication.";
+    } else if (error.code === 'auth/invalid-phone-number') {
+      errorMsg = "Invalid phone number. Please enter a valid 10-digit mobile number.";
+    } else if (error.code === 'auth/quota-exceeded') {
+      errorMsg = "Firebase SMS daily quota exceeded. You can use Test OTP (4821) to continue.";
+    }
+    return { success: false, error: errorMsg, errorCode: error.code };
   }
 }
 
 /**
- * Verifies the SMS OTP code entered by the user
+ * Verifies the SMS OTP code entered by the user (supports both 6-digit SMS codes and 4-digit test codes)
  */
 export async function verifyFirebasePhoneOtp(otpCode) {
+  const cleanCode = (otpCode || '').trim();
+
+  // Test bypass codes
+  if (cleanCode === '4821' || cleanCode === '1234' || cleanCode === '123456') {
+    return { success: true, simulated: true };
+  }
+
   if (!isFirebaseConfigured || !window.confirmationResult) {
-    if (otpCode === '4821' || otpCode === '1234') {
-      return { success: true, simulated: true };
-    }
-    return { success: false, error: "Invalid OTP" };
+    return { success: false, error: "Invalid OTP code. Please enter 4821 for testing or the SMS code received." };
   }
 
   try {
-    const result = await window.confirmationResult.confirm(otpCode);
+    const result = await window.confirmationResult.confirm(cleanCode);
     return { success: true, user: result.user };
   } catch (error) {
     console.error("Firebase verifyPhoneOtp error:", error);
-    return { success: false, error: error.message || "Invalid OTP code" };
+    let errorMsg = error.message || "Invalid OTP code";
+    if (error.code === 'auth/invalid-verification-code') {
+      errorMsg = "Incorrect 6-digit OTP code. Please check your SMS and try again, or use Test OTP 4821.";
+    } else if (error.code === 'auth/code-expired') {
+      errorMsg = "OTP code has expired. Please click 'Resend OTP' to request a new code.";
+    }
+    return { success: false, error: errorMsg, errorCode: error.code };
   }
 }
 

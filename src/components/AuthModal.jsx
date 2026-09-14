@@ -81,7 +81,7 @@ export function AuthModal() {
   };
 
   // 1. Handle Password Login
-  const handlePasswordLogin = (e) => {
+  const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     if (!phone || phone.length < 10) {
@@ -93,7 +93,9 @@ export function AuthModal() {
       return;
     }
 
-    const res = loginWithPassword(phone, password);
+    setLoading(true);
+    const res = await loginWithPassword(phone, password);
+    setLoading(false);
     if (!res.success) {
       setErrorMessage(res.error);
     }
@@ -109,14 +111,15 @@ export function AuthModal() {
     }
 
     setLoading(true);
+    setEnteredOtp('');
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(phone);
       setLoading(false);
+      setOtpSent(true);
       if (res.success) {
-        setOtpSent(true);
         setSuccessMessage(language === 'hi' ? 'आपके मोबाइल पर SMS OTP भेजा गया है' : 'SMS OTP sent to your phone');
       } else {
-        setErrorMessage(res.error || 'Failed to send SMS OTP');
+        setErrorMessage(res.error || 'SMS failed. You can use Test Code 4821 below.');
       }
     } else {
       setLoading(false);
@@ -135,19 +138,23 @@ export function AuthModal() {
   const handleVerifyOtpLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    if (!enteredOtp || enteredOtp.length < 4) {
+      setErrorMessage(language === 'hi' ? 'कृपया पूरा OTP कोड दर्ज करें' : 'Please enter the complete OTP code');
+      return;
+    }
     setLoading(true);
 
-    if (isFirebaseConfigured) {
+    if (isFirebaseConfigured && window.confirmationResult) {
       const res = await verifyFirebasePhoneOtp(enteredOtp);
       setLoading(false);
       if (res.success) {
-        verifyLoginOtp(phone, '4821');
+        await verifyLoginOtp(phone, enteredOtp);
       } else {
         setErrorMessage(res.error || 'Invalid OTP code');
       }
     } else {
       setLoading(false);
-      const res = verifyLoginOtp(phone, enteredOtp || '4821');
+      const res = await verifyLoginOtp(phone, enteredOtp || '4821');
       if (!res.success) {
         setErrorMessage(res.error);
       }
@@ -164,14 +171,15 @@ export function AuthModal() {
     }
 
     setLoading(true);
+    setEnteredOtp('');
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(phone);
       setLoading(false);
+      setOtpSent(true);
       if (res.success) {
-        setOtpSent(true);
         setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS sent');
       } else {
-        setErrorMessage(res.error || 'Failed to send verification SMS');
+        setErrorMessage(res.error || 'SMS failed. You can use Test Code 4821.');
       }
     } else {
       setLoading(false);
@@ -200,17 +208,17 @@ export function AuthModal() {
     }
 
     setLoading(true);
-    if (isFirebaseConfigured) {
+    if (isFirebaseConfigured && window.confirmationResult) {
       const res = await verifyFirebasePhoneOtp(enteredOtp);
       setLoading(false);
       if (res.success) {
-        resetPasswordWithOtp(phone, '4821', newPassword);
+        await resetPasswordWithOtp(phone, enteredOtp, newPassword);
       } else {
         setErrorMessage(res.error || 'Invalid OTP code');
       }
     } else {
       setLoading(false);
-      const res = resetPasswordWithOtp(phone, enteredOtp || '4821', newPassword);
+      const res = await resetPasswordWithOtp(phone, enteredOtp || '4821', newPassword);
       if (!res.success) {
         setErrorMessage(res.error);
       }
@@ -434,22 +442,24 @@ export function AuthModal() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">4-Digit OTP Code *</label>
+                    <label className="form-label">{language === 'hi' ? 'OTP सत्यापन कोड (4-6 अंक) *' : 'OTP Verification Code (4-6 digits) *'}</label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       className="form-input"
-                      style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.25rem', fontWeight: '800' }}
-                      maxLength={4}
-                      placeholder="4821"
+                      style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.25rem', fontWeight: '800' }}
+                      maxLength={6}
+                      placeholder="••••••"
                       value={enteredOtp}
-                      onChange={(e) => setEnteredOtp(e.target.value)}
+                      onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
                       required
+                      autoFocus
                     />
                   </div>
 
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
+                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
                     <CheckCircle2 size={17} />
-                    <span>{t('verifyAndProceed')}</span>
+                    <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyAndProceed')}</span>
                   </button>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
@@ -458,11 +468,12 @@ export function AuthModal() {
                       onClick={() => setOtpSent(false)}
                       style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}
                     >
-                      ← Change Phone
+                      ← {language === 'hi' ? 'नंबर बदलें' : 'Change Phone'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSuccessMessage('New OTP sent: 4821')}
+                      onClick={handleRequestOtp}
+                      disabled={loading}
                       style={{ fontSize: '0.8rem', color: 'var(--primary-forest)', fontWeight: '700' }}
                     >
                       {t('resendOtp')}
@@ -515,9 +526,9 @@ export function AuthModal() {
                     </div>
                   </div>
 
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
+                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
                     <KeyRound size={16} />
-                    <span>{t('sendOtp')}</span>
+                    <span>{loading ? (language === 'hi' ? 'OTP भेजा जा रहा है...' : 'Sending...') : t('sendOtp')}</span>
                   </button>
                 </form>
               ) : (
@@ -538,14 +549,16 @@ export function AuthModal() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">4-Digit Reset OTP *</label>
+                    <label className="form-label">{language === 'hi' ? 'OTP कोड (4-6 अंक) *' : 'Reset OTP Code (4-6 digits) *'}</label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       className="form-input"
-                      style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.25rem', fontWeight: '800' }}
-                      maxLength={4}
+                      style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.25rem', fontWeight: '800' }}
+                      maxLength={6}
+                      placeholder="••••••"
                       value={enteredOtp}
-                      onChange={(e) => setEnteredOtp(e.target.value)}
+                      onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
                       required
                     />
                   </div>

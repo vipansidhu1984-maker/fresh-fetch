@@ -427,21 +427,31 @@ a {
 }
 
 .otp-digit-input {
-  width: 48px;
-  height: 52px;
+  width: clamp(38px, 11vw, 48px);
+  height: clamp(44px, 13vw, 52px);
   border-radius: var(--radius-md);
   border: 2px solid var(--card-border);
   text-align: center;
-  font-size: 1.4rem;
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
   font-weight: 800;
   color: var(--primary-forest);
   background: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  caret-color: var(--primary-emerald);
 }
 
 .otp-digit-input:focus {
   border-color: var(--primary-emerald);
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
   outline: none;
+  transform: translateY(-2px);
+}
+
+.otp-digit-input.has-value {
+  border-color: var(--primary-emerald);
+  background: #f0fdf4;
+  color: #14532d;
 }
 
 /* =========================================================
