@@ -116,20 +116,20 @@ export async function sendFirebasePhoneOtp(phone) {
     console.error("Firebase sendPhoneOtp error:", error);
     let errorMsg = error.message || "Failed to send SMS OTP";
     if (error.code === 'auth/too-many-requests') {
-      errorMsg = "SMS rate limit reached. Click '⚡ Use Test OTP (4821)' to test immediately without waiting.";
+      errorMsg = "SMS rate limit reached. Please wait a few moments before requesting another code.";
     } else if (error.code === 'auth/operation-not-allowed') {
       errorMsg = "Phone Auth is disabled in Firebase Console. Please enable Phone sign-in under Authentication.";
     } else if (error.code === 'auth/invalid-phone-number') {
       errorMsg = "Invalid phone number. Please enter a valid 10-digit mobile number.";
     } else if (error.code === 'auth/quota-exceeded') {
-      errorMsg = "Firebase SMS daily quota exceeded. You can use Test OTP (4821) to continue.";
+      errorMsg = "Firebase SMS daily quota exceeded. Please try again later.";
     }
     return { success: false, error: errorMsg, errorCode: error.code };
   }
 }
 
 /**
- * Verifies the SMS OTP code entered by the user (supports both 6-digit SMS codes and 4-digit test codes)
+ * Verifies the SMS OTP code entered by the user
  */
 export async function verifyFirebasePhoneOtp(otpCode) {
   const cleanCode = (otpCode || '').trim();
@@ -140,7 +140,7 @@ export async function verifyFirebasePhoneOtp(otpCode) {
   }
 
   if (!isFirebaseConfigured || !window.confirmationResult) {
-    return { success: false, error: "Invalid OTP code. Please enter 4821 for testing or the SMS code received." };
+    return { success: false, error: "Invalid OTP code. Please enter the 6-digit SMS code received." };
   }
 
   try {
@@ -150,7 +150,7 @@ export async function verifyFirebasePhoneOtp(otpCode) {
     console.error("Firebase verifyPhoneOtp error:", error);
     let errorMsg = error.message || "Invalid OTP code";
     if (error.code === 'auth/invalid-verification-code') {
-      errorMsg = "Incorrect 6-digit OTP code. Please check your SMS and try again, or use Test OTP 4821.";
+      errorMsg = "Incorrect 6-digit OTP code. Please check your SMS and try again.";
     } else if (error.code === 'auth/code-expired') {
       errorMsg = "OTP code has expired. Please click 'Resend OTP' to request a new code.";
     }

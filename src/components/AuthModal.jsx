@@ -14,7 +14,6 @@ import {
   CheckCircle2, 
   KeyRound, 
   ArrowRight, 
-  Sparkles,
   ShieldCheck
 } from 'lucide-react';
 
@@ -47,8 +46,10 @@ export function AuthModal() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // OTP Fields
+  // OTP Fields (6 Digits)
   const [otpSent, setOtpSent] = useState(false);
+  const [modalOtpDigits, setModalOtpDigits] = useState(['', '', '', '', '', '']);
+  const modalOtpRefs = React.useRef([]);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -70,6 +71,7 @@ export function AuthModal() {
     setErrorMessage('');
     setSuccessMessage('');
     setOtpSent(false);
+    setModalOtpDigits(['', '', '', '', '', '']);
     setEnteredOtp('');
     setNewPassword('');
     setConfirmPassword('');
@@ -78,6 +80,52 @@ export function AuthModal() {
   const switchMode = (mode) => {
     resetState();
     setAuthMode(mode);
+  };
+
+  const handleModalDigitChange = (index, value) => {
+    const clean = value.replace(/\D/g, '');
+    const newDigits = [...modalOtpDigits];
+
+    if (clean.length > 1) {
+      const pastedChars = clean.slice(0, 6).split('');
+      for (let i = 0; i < 6; i++) {
+        newDigits[i] = pastedChars[i] || '';
+      }
+      setModalOtpDigits(newDigits);
+      setEnteredOtp(newDigits.join(''));
+      const nextIndex = Math.min(pastedChars.length, 5);
+      modalOtpRefs.current[nextIndex]?.focus();
+      return;
+    }
+
+    newDigits[index] = clean;
+    setModalOtpDigits(newDigits);
+    setEnteredOtp(newDigits.join(''));
+
+    if (clean && index < 5) {
+      modalOtpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleModalKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !modalOtpDigits[index] && index > 0) {
+      modalOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleModalPaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasteData) {
+      const newDigits = ['', '', '', '', '', ''];
+      for (let i = 0; i < pasteData.length; i++) {
+        newDigits[i] = pasteData[i];
+      }
+      setModalOtpDigits(newDigits);
+      setEnteredOtp(newDigits.join(''));
+      const focusIdx = Math.min(pasteData.length, 5);
+      modalOtpRefs.current[focusIdx]?.focus();
+    }
   };
 
   // 1. Handle Password Login
@@ -111,23 +159,24 @@ export function AuthModal() {
     }
 
     setLoading(true);
+    setModalOtpDigits(['', '', '', '', '', '']);
     setEnteredOtp('');
+
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(phone);
       setLoading(false);
       setOtpSent(true);
       if (res.success) {
-        setSuccessMessage(language === 'hi' ? 'आपके मोबाइल पर SMS OTP भेजा गया है' : 'SMS OTP sent to your phone');
+        setSuccessMessage(language === 'hi' ? 'आपके मोबाइल पर 6-अंकों का SMS OTP भेजा गया है' : '6-digit SMS OTP sent to your phone');
       } else {
-        setErrorMessage(res.error || 'SMS failed. You can use Test Code 4821 below.');
+        setErrorMessage(res.error || (language === 'hi' ? 'SMS भेजने में विफल' : 'Failed to send SMS OTP'));
       }
     } else {
       setLoading(false);
       const res = requestLoginOtp(phone);
       if (res.success) {
         setOtpSent(true);
-        setEnteredOtp('4821');
-        setSuccessMessage(language === 'hi' ? 'OTP भेजा गया: 4821' : 'OTP Sent: 4821');
+        setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
       } else {
         setErrorMessage(res.error);
       }
@@ -138,23 +187,25 @@ export function AuthModal() {
   const handleVerifyOtpLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
-    if (!enteredOtp || enteredOtp.length < 4) {
-      setErrorMessage(language === 'hi' ? 'कृपया पूरा OTP कोड दर्ज करें' : 'Please enter the complete OTP code');
+    const code = modalOtpDigits.join('').trim() || enteredOtp.trim();
+
+    if (!code || code.length < 6) {
+      setErrorMessage(language === 'hi' ? 'कृपया पूरा 6 अंकों का OTP कोड दर्ज करें' : 'Please enter the full 6-digit OTP code');
       return;
     }
     setLoading(true);
 
     if (isFirebaseConfigured && window.confirmationResult) {
-      const res = await verifyFirebasePhoneOtp(enteredOtp);
+      const res = await verifyFirebasePhoneOtp(code);
       setLoading(false);
       if (res.success) {
-        await verifyLoginOtp(phone, enteredOtp);
+        await verifyLoginOtp(phone, code);
       } else {
-        setErrorMessage(res.error || 'Invalid OTP code');
+        setErrorMessage(res.error || (language === 'hi' ? 'अमान्य OTP कोड' : 'Invalid OTP code'));
       }
     } else {
       setLoading(false);
-      const res = await verifyLoginOtp(phone, enteredOtp || '4821');
+      const res = await verifyLoginOtp(phone, code);
       if (!res.success) {
         setErrorMessage(res.error);
       }
@@ -171,6 +222,7 @@ export function AuthModal() {
     }
 
     setLoading(true);
+    setModalOtpDigits(['', '', '', '', '', '']);
     setEnteredOtp('');
     if (isFirebaseConfigured) {
       const res = await sendFirebasePhoneOtp(phone);
@@ -179,15 +231,14 @@ export function AuthModal() {
       if (res.success) {
         setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS sent');
       } else {
-        setErrorMessage(res.error || 'SMS failed. You can use Test Code 4821.');
+        setErrorMessage(res.error || (language === 'hi' ? 'SMS भेजने में विफल' : 'Failed to send SMS'));
       }
     } else {
       setLoading(false);
       const res = requestPasswordReset(phone);
       if (res.success) {
         setOtpSent(true);
-        setEnteredOtp('4821');
-        setSuccessMessage(language === 'hi' ? 'सत्यापन OTP भेजा गया: 4821' : 'Verification OTP Sent: 4821');
+        setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
       } else {
         setErrorMessage(res.error);
       }
@@ -198,6 +249,10 @@ export function AuthModal() {
   const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    if (!enteredOtp || enteredOtp.length < 6) {
+      setErrorMessage(language === 'hi' ? 'कृपया 6 अंकों का OTP कोड दर्ज करें' : 'Please enter the 6-digit OTP code');
+      return;
+    }
     if (newPassword.length < 4) {
       setErrorMessage(language === 'hi' ? 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए' : 'Password must be at least 4 characters long');
       return;
@@ -214,11 +269,11 @@ export function AuthModal() {
       if (res.success) {
         await resetPasswordWithOtp(phone, enteredOtp, newPassword);
       } else {
-        setErrorMessage(res.error || 'Invalid OTP code');
+        setErrorMessage(res.error || (language === 'hi' ? 'अमान्य OTP कोड' : 'Invalid OTP code'));
       }
     } else {
       setLoading(false);
-      const res = await resetPasswordWithOtp(phone, enteredOtp || '4821', newPassword);
+      const res = await resetPasswordWithOtp(phone, enteredOtp, newPassword);
       if (!res.success) {
         setErrorMessage(res.error);
       }
@@ -422,39 +477,35 @@ export function AuthModal() {
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtpLogin}>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
                     {t('otpSentTo')} <strong>+91 {phone}</strong>
                   </p>
 
-                  {/* Simulated SMS helper banner */}
-                  <div 
-                    className="sms-simulation-box"
-                    onClick={() => setEnteredOtp('4821')}
-                    style={{ marginBottom: '1rem', cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700', fontSize: '0.8rem', color: '#166534' }}>
-                      <Sparkles size={13} />
-                      <span>{t('simulatedSms')} <strong>4821</strong></span>
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--primary-forest)' }}>
-                      👉 {t('clickToAutofill')}
-                    </div>
+                  <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                      {language === 'hi' ? '6-अंकों का OTP कोड दर्ज करें' : 'Enter 6-Digit SMS OTP'}
+                    </span>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">{language === 'hi' ? 'OTP सत्यापन कोड (4-6 अंक) *' : 'OTP Verification Code (4-6 digits) *'}</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="form-input"
-                      style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.25rem', fontWeight: '800' }}
-                      maxLength={6}
-                      placeholder="••••••"
-                      value={enteredOtp}
-                      onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
-                      required
-                      autoFocus
-                    />
+                  {/* 6 Discrete Spaces / Boxes for OTP */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.75rem 0 1.5rem', flexWrap: 'nowrap' }}>
+                    {modalOtpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => (modalOtpRefs.current[index] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        className={`otp-digit-input ${digit ? 'has-value' : ''}`}
+                        value={digit}
+                        onChange={(e) => handleModalDigitChange(index, e.target.value)}
+                        onKeyDown={(e) => handleModalKeyDown(index, e)}
+                        onPaste={handleModalPaste}
+                        placeholder="•"
+                        autoFocus={index === 0}
+                      />
+                    ))}
                   </div>
 
                   <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
@@ -533,34 +584,31 @@ export function AuthModal() {
                 </form>
               ) : (
                 <form onSubmit={handleResetPasswordSubmit}>
-                  {/* Simulated SMS helper banner */}
-                  <div 
-                    className="sms-simulation-box"
-                    onClick={() => setEnteredOtp('4821')}
-                    style={{ marginBottom: '1rem', cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: '700', fontSize: '0.8rem', color: '#166534' }}>
-                      <Sparkles size={13} />
-                      <span>{t('simulatedSms')} <strong>4821</strong></span>
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--primary-forest)' }}>
-                      👉 {t('clickToAutofill')}
-                    </div>
+                  <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                      {language === 'hi' ? '6-अंकों का OTP कोड दर्ज करें' : 'Enter 6-Digit SMS OTP'}
+                    </span>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">{language === 'hi' ? 'OTP कोड (4-6 अंक) *' : 'Reset OTP Code (4-6 digits) *'}</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="form-input"
-                      style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.25rem', fontWeight: '800' }}
-                      maxLength={6}
-                      placeholder="••••••"
-                      value={enteredOtp}
-                      onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
-                      required
-                    />
+                  {/* 6 Discrete Spaces / Boxes for OTP */}
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.75rem 0 1.25rem', flexWrap: 'nowrap' }}>
+                    {modalOtpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => (modalOtpRefs.current[index] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        className={`otp-digit-input ${digit ? 'has-value' : ''}`}
+                        value={digit}
+                        onChange={(e) => handleModalDigitChange(index, e.target.value)}
+                        onKeyDown={(e) => handleModalKeyDown(index, e)}
+                        onPaste={handleModalPaste}
+                        placeholder="•"
+                        autoFocus={index === 0}
+                      />
+                    ))}
                   </div>
 
                   <div className="form-group">

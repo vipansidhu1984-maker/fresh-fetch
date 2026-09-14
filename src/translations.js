@@ -208,7 +208,7 @@ export const translations = {
     userNotFound: "No account found with this mobile number. Please create an account.",
     passwordMismatch: "New password and confirmation do not match.",
     otpVerified: "OTP verified successfully!",
-    invalidOtp: "Invalid OTP. Please check or use code 4821.",
+    invalidOtp: "Invalid OTP code. Please enter the 6-digit code sent to your phone.",
 
     // Units
     unitKg: "kg",
@@ -424,7 +424,7 @@ export const translations = {
     userNotFound: "इस नंबर से कोई खाता नहीं मिला। कृपया नया खाता बनाएं।",
     passwordMismatch: "दोनों पासवर्ड समान नहीं हैं।",
     otpVerified: "OTP सफलतापूर्वक सत्यापित!",
-    invalidOtp: "गलत OTP। कृपया जांचें या 4821 दर्ज करें。",
+    invalidOtp: "अमान्य OTP कोड। कृपया SMS द्वारा प्राप्त 6 अंकों का कोड दर्ज करें。",
 
     // Units
     unitKg: "किलो (kg)",
@@ -640,7 +640,7 @@ export const translations = {
     userNotFound: "ਇਸ ਨੰਬਰ ਨਾਲ ਕੋਈ ਖਾਤਾ ਨਹੀਂ ਮਿਲਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਨਵਾਂ ਖਾਤਾ ਬਣਾਓ।",
     passwordMismatch: "ਦੋਵੇਂ ਪਾਸਵਰਡ ਇੱਕੋ ਜਿਹੇ ਨਹੀਂ ਹਨ।",
     otpVerified: "OTP ਸਫਲਤਾਪੂਰਵਕ ਤਸਦੀਕ ਹੋ ਗਿਆ!",
-    invalidOtp: "ਗਲਤ OTP। ਕਿਰਪਾ ਕਰਕੇ ਜਾਂਚੋ ਜਾਂ 4821 ਦਰਜ ਕਰੋ।",
+    invalidOtp: "ਗਲਤ OTP ਕੋਡ। ਕਿਰਪਾ ਕਰਕੇ SMS ਰਾਹੀਂ ਆਇਆ 6 ਅੰਕਾਂ ਦਾ ਕੋਡ ਦਰਜ ਕਰੋ।",
 
     // Units
     unitKg: "ਕਿਲੋ (kg)",

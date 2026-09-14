@@ -1706,14 +1706,20 @@ a {
   }
 
   .otp-digit-input {
-    width: 44px;
-    height: 48px;
-    font-size: 1.3rem;
+    width: 38px;
+    height: 44px;
+    font-size: 1.2rem;
   }
 }
 
 /* Extra Small Phones (max-width: 360px) */
 @media (max-width: 360px) {
+  .otp-digit-input {
+    width: 33px;
+    height: 40px;
+    font-size: 1.05rem;
+  }
+
   .nav-tab-btn span {
     font-size: 0.62rem;
   }
