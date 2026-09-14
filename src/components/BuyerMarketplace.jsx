@@ -282,20 +282,16 @@ export function BuyerMarketplace() {
                   ? 'ਜਿਵੇਂ ਹੀ ਖੇਤਰ ਦੇ ਕਿਸਾਨ ਆਪਣੇ ਸ਼ੁੱਧ ਉਤਪਾਦ ਸ਼ਾਮਲ ਕਰਨਗੇ, ਉਹ ਇੱਥੇ ਦਿਖਾਈ ਦੇਣਗੇ।'
                   : 'Real produce listings posted directly by verified local farmers will appear here live.'}
               </p>
-              <button
-                className="btn-primary"
-                style={{ width: 'auto', margin: '0.5rem auto 0', gap: '0.4rem' }}
-                onClick={() => {
-                  if (role === 'producer') {
-                    setShowAddProductModal(true);
-                  } else {
-                    setActiveTab('listings');
-                  }
-                }}
-              >
-                <PlusCircle size={16} />
-                <span>{language === 'hi' ? '🚜 किसान: नया उत्पाद जोड़ें' : '🚜 Farmers: Add Produce Listing'}</span>
-              </button>
+              {role === 'producer' && (
+                <button
+                  className="btn-primary"
+                  style={{ width: 'auto', margin: '0.5rem auto 0', gap: '0.4rem' }}
+                  onClick={() => setShowAddProductModal(true)}
+                >
+                  <PlusCircle size={16} />
+                  <span>{language === 'hi' ? '🚜 किसान: नया उत्पाद जोड़ें' : language === 'pa' ? '🚜 ਕਿਸਾਨ: ਨਵਾਂ ਉਤਪਾਦ ਜੋੜੋ' : '🚜 Farmers: Add Produce Listing'}</span>
+                </button>
+              )}
             </div>
           ) : (
             <div>

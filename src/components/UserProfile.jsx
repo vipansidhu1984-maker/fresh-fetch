@@ -409,6 +409,45 @@ export function UserProfile() {
         </div>
       </div>
 
+      {/* Locations Covered Card (Phase 1) */}
+      <div 
+        style={{ 
+          background: '#ffffff', 
+          borderRadius: 'var(--radius-lg)', 
+          border: '1.5px solid var(--card-border)', 
+          padding: '1.25rem',
+          marginBottom: '1.25rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
+          <MapPin size={18} color="var(--primary-forest)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--primary-forest)' }}>
+            {language === 'hi' ? 'कवर किए गए क्षेत्र (Phase 1)' : language === 'pa' ? 'ਕਵਰ ਕੀਤੇ ਖੇਤਰ (Phase 1)' : 'Covered Locations (Phase 1)'}
+          </h3>
+        </div>
+
+        <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: '1.6', display: 'grid', gap: '0.6rem' }}>
+          <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+            <div style={{ fontWeight: '800', color: 'var(--primary-forest)', marginBottom: '0.2rem' }}>
+              📍 Hanumangarh District:
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Town, Junction, Sangaria, Nohar, Bhadra, Pilibanga, Rawatsar, Tibbi
+            </div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
+            <div style={{ fontWeight: '800', color: 'var(--primary-forest)', marginBottom: '0.2rem' }}>
+              📍 Sri Ganganagar District:
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              City, Suratgarh, Padampur, Raisinghnagar, Anupgarh, Sadulshahar
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Actions: Support Helpline, About Founders & Log Out */}
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         <a

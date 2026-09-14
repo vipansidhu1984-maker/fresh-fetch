@@ -62,8 +62,8 @@ function MainLayout() {
       <ChatModal />
       <AuthModal />
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer - shown only in Profile section to keep Market, Listings and Leads clean and simple */}
+      {activeTab === 'profile' && <Footer />}
 
       {/* Mobile-Native Bottom Navigation */}
       <BottomNav />
