@@ -409,69 +409,83 @@ export function UserProfile() {
         </div>
       </div>
 
-      {/* Locations Covered Card (Phase 1) */}
+      {/* Aesthetic Compact Service Area Tag */}
       <div 
         style={{ 
-          background: '#ffffff', 
-          borderRadius: 'var(--radius-lg)', 
-          border: '1.5px solid var(--card-border)', 
-          padding: '1.25rem',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          gap: '0.45rem', 
+          padding: '0.6rem 1rem', 
+          background: 'var(--bg-subtle)', 
+          borderRadius: 'var(--radius-full)', 
+          border: '1px solid var(--card-border)', 
+          fontSize: '0.8rem', 
+          color: 'var(--text-secondary)', 
           marginBottom: '1.25rem',
-          boxShadow: 'var(--shadow-sm)'
+          textAlign: 'center'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
-          <MapPin size={18} color="var(--primary-forest)" />
-          <h3 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--primary-forest)' }}>
-            {language === 'hi' ? 'कवर किए गए क्षेत्र (Phase 1)' : language === 'pa' ? 'ਕਵਰ ਕੀਤੇ ਖੇਤਰ (Phase 1)' : 'Covered Locations (Phase 1)'}
-          </h3>
-        </div>
-
-        <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: '1.6', display: 'grid', gap: '0.6rem' }}>
-          <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
-            <div style={{ fontWeight: '800', color: 'var(--primary-forest)', marginBottom: '0.2rem' }}>
-              📍 Hanumangarh District:
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Town, Junction, Sangaria, Nohar, Bhadra, Pilibanga, Rawatsar, Tibbi
-            </div>
-          </div>
-
-          <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--card-border)' }}>
-            <div style={{ fontWeight: '800', color: 'var(--primary-forest)', marginBottom: '0.2rem' }}>
-              📍 Sri Ganganagar District:
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              City, Suratgarh, Padampur, Raisinghnagar, Anupgarh, Sadulshahar
-            </div>
-          </div>
-        </div>
+        <MapPin size={14} color="var(--primary-emerald)" />
+        <span>
+          <strong style={{ color: 'var(--primary-forest)' }}>Hanumangarh & Sri Ganganagar</strong>, Rajasthan
+        </span>
       </div>
 
-      {/* Actions: Support Helpline, About Founders & Log Out */}
+      {/* Actions: Support Helpline (Dual Numbers), About Founders & Log Out */}
       <div style={{ display: 'grid', gap: '0.75rem' }}>
-        <a
-          href="https://wa.me/918107008156?text=Namaste%20Fresh%20Fetch%20Team!%20I%20need%20help/support."
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            padding: '0.85rem 1rem',
-            borderRadius: 'var(--radius-md)',
-            background: '#ecfdf5',
-            border: '1.5px solid #a7f3d0',
-            color: 'var(--whatsapp-dark)',
-            fontWeight: '800',
-            fontSize: '0.88rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.4rem',
-            textDecoration: 'none'
-          }}
-        >
-          <MessageCircle size={18} />
-          <span>{language === 'hi' ? 'व्हाट्सएप सहायता हेल्पलाइन (+91 8107008156)' : 'WhatsApp Support (+91 8107008156)'}</span>
-        </a>
+        <div style={{ background: '#ecfdf5', border: '1.5px solid #a7f3d0', borderRadius: 'var(--radius-md)', padding: '0.85rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: 'var(--whatsapp-dark)', fontWeight: '800', fontSize: '0.86rem', marginBottom: '0.6rem' }}>
+            <MessageCircle size={17} />
+            <span>{language === 'hi' ? 'व्हाट्सएप सहायता हेल्पलाइन' : language === 'pa' ? 'ਵਟਸਐਪ ਸਹਾਇਤਾ ਹੈਲਪਲਾਈਨ' : 'WhatsApp Support & Helpline'}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <a
+              href="https://wa.me/918107008156?text=Namaste%20Fresh%20Fetch%20Team!%20I%20need%20help/support."
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: '0.6rem 0.4rem',
+                borderRadius: 'var(--radius-sm)',
+                background: '#ffffff',
+                border: '1px solid #6ee7b7',
+                color: 'var(--whatsapp-dark)',
+                fontWeight: '800',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.3rem',
+                textDecoration: 'none',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <span>+91 8107008156</span>
+            </a>
+            <a
+              href="https://wa.me/919511544399?text=Namaste%20Fresh%20Fetch%20Team!%20I%20need%20help/support."
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: '0.6rem 0.4rem',
+                borderRadius: 'var(--radius-sm)',
+                background: '#ffffff',
+                border: '1px solid #6ee7b7',
+                color: 'var(--whatsapp-dark)',
+                fontWeight: '800',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.3rem',
+                textDecoration: 'none',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <span>+91 9511544399</span>
+            </a>
+          </div>
+        </div>
 
         <button
           onClick={() => setShowPrivacyModal(true)}

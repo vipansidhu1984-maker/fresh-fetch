@@ -57,51 +57,76 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Col 2: Phase 1 Regions */}
+        {/* Col 2: Service Locations */}
         <div>
           <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '0.95rem', color: 'var(--primary-forest)', marginBottom: '0.75rem' }}>
-            📍 {language === 'hi' ? 'कवर किए गए क्षेत्र (Phase 1)' : 'Locations (Phase 1)'}
+            📍 {language === 'hi' ? 'सेवारत क्षेत्र' : language === 'pa' ? 'ਸੇਵਾ ਖੇਤਰ' : 'Service Locations'}
           </h4>
-          <ul style={{ listStyle: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
-            <li>• <strong>Hanumangarh:</strong> Town, Junction, Sangaria, Nohar, Bhadra, Pilibanga, Rawatsar, Tibbi</li>
-            <li>• <strong>Sri Ganganagar:</strong> City, Suratgarh, Padampur, Raisinghnagar, Anupgarh, Sadulshahar</li>
-          </ul>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+            <strong>Hanumangarh</strong> & <strong>Sri Ganganagar</strong>, Rajasthan
+          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            {language === 'hi' 
+              ? 'स्थानीय किसानों और उपभोक्ताओं के लिए 100% शुद्ध और सत्यापित कृषि उत्पाद।' 
+              : 'Direct-to-consumer platform for verified pure farmer produce.'}
+          </p>
         </div>
 
-        {/* Col 3: WhatsApp Helpline (No button, clear helpline display) */}
+        {/* Col 3: WhatsApp Helpline (Dual Numbers) */}
         <div>
           <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '0.95rem', color: 'var(--primary-forest)', marginBottom: '0.75rem' }}>
-            💬 {language === 'hi' ? 'सीधा संपर्क एवं हेल्पलाइन' : 'WhatsApp Helpline & Support'}
+            💬 {language === 'hi' ? 'व्हाट्सएप सहायता हेल्पलाइन' : 'WhatsApp Helpline & Support'}
           </h4>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
             {language === 'hi' 
-              ? 'यदि आप एक किसान हैं और अपने उत्पाद जोड़ना चाहते हैं, या किसी सहायता की आवश्यकता है, तो हमारे हेल्पलाइन नंबर पर संपर्क करें।' 
-              : 'Are you a farmer wanting to list your pure items or need buyer assistance? Contact our helpline directly.'}
+              ? 'किसान लिस्टिंग या ग्राहक सहायता के लिए हमारे हेल्पलाइन नंबरों पर संपर्क करें।' 
+              : 'For farmer listings, orders, or inquiries, reach out to our support team directly.'}
           </p>
-          <div 
-            style={{ 
-              display: 'inline-flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              padding: '0.6rem 0.95rem', 
-              background: '#ecfdf5', 
-              border: '1.5px solid #a7f3d0', 
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.92rem', 
-              fontWeight: '800', 
-              color: 'var(--whatsapp-dark)' 
-            }}
-          >
-            <MessageCircle size={18} color="var(--whatsapp-dark)" />
-            <span>WhatsApp: </span>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <a 
               href="https://wa.me/918107008156?text=Namaste%20Fresh%20Fetch%20Team!%20I%20need%20assistance/support." 
               target="_blank" 
               rel="noopener noreferrer" 
-              style={{ textDecoration: 'underline', color: 'var(--whatsapp-dark)' }}
-              title="Click to message on WhatsApp"
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.35rem', 
+                padding: '0.5rem 0.75rem', 
+                background: '#ecfdf5', 
+                border: '1.5px solid #a7f3d0', 
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem', 
+                fontWeight: '800', 
+                color: 'var(--whatsapp-dark)',
+                textDecoration: 'none'
+              }}
+              title="Click to message Vipandeep on WhatsApp"
             >
-              +91 8107008156
+              <MessageCircle size={15} color="var(--whatsapp-dark)" />
+              <span>+91 8107008156</span>
+            </a>
+
+            <a 
+              href="https://wa.me/919511544399?text=Namaste%20Fresh%20Fetch%20Team!%20I%20need%20assistance/support." 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '0.35rem', 
+                padding: '0.5rem 0.75rem', 
+                background: '#ecfdf5', 
+                border: '1.5px solid #a7f3d0', 
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem', 
+                fontWeight: '800', 
+                color: 'var(--whatsapp-dark)',
+                textDecoration: 'none'
+              }}
+              title="Click to message Support on WhatsApp"
+            >
+              <MessageCircle size={15} color="var(--whatsapp-dark)" />
+              <span>+91 9511544399</span>
             </a>
           </div>
         </div>

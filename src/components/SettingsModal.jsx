@@ -291,8 +291,11 @@ export function SettingsModal() {
           {/* 4. Support Helpline Link */}
           <div style={{ textAlign: 'center', paddingTop: '0.5rem', borderTop: darkMode ? '1px solid #334155' : '1px solid var(--card-border)', fontSize: '0.8rem', color: darkMode ? '#94a3b8' : 'var(--text-muted)' }}>
             <div>Fresh Fetch v1.0.0 (PWA)</div>
-            <div style={{ marginTop: '0.2rem' }}>
-              WhatsApp Helpline: <a href="https://wa.me/918107008156" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800' }}>+91 8107008156</a>
+            <div style={{ marginTop: '0.2rem', display: 'flex', justifyContent: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <span>WhatsApp:</span>
+              <a href="https://wa.me/918107008156" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800' }}>+91 8107008156</a>
+              <span>•</span>
+              <a href="https://wa.me/919511544399" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800' }}>+91 9511544399</a>
             </div>
           </div>
         </div>

@@ -264,6 +264,10 @@ export function PrivacyPolicyModal() {
                     <a href="https://wa.me/918107008156" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800', textDecoration: 'underline' }}>
                       +91 8107008156
                     </a>
+                    <span> / </span>
+                    <a href="https://wa.me/919511544399" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800', textDecoration: 'underline' }}>
+                      +91 9511544399
+                    </a>
                   </div>
                   <div><strong>शिकायत निवारण समय-सीमा (SLA):</strong> 24 घंटे के भीतर पावती (Acknowledgment) एवं 7 कार्य दिवसों में पूर्ण समाधान।</div>
                   <div><strong>कानूनी क्षेत्राधिकार:</strong> हनुमानगढ़ एवं श्रीगंगानगर न्यायालय, राजस्थान, भारत।</div>
@@ -311,7 +315,7 @@ export function PrivacyPolicyModal() {
                   ਕਿਸੇ ਵੀ ਪ੍ਰਸ਼ਨ ਜਾਂ ਸ਼ਿਕਾਇਤ ਲਈ ਸਿੱਧਾ ਸਾਡੇ ਵਟਸਐਪ ਨੰਬਰ 'ਤੇ ਸੰਪਰਕ ਕਰੋ:
                 </p>
                 <div style={{ marginTop: '0.3rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>
-                  📞 WhatsApp Helpline: +91 8107008156 (Vipandeep & Jashan)
+                  📞 WhatsApp Helpline: +91 8107008156 / +91 9511544399 (Vipandeep & Jashan)
                 </div>
               </div>
             </div>
@@ -463,6 +467,10 @@ export function PrivacyPolicyModal() {
                     <strong>Official WhatsApp Helpline: </strong>
                     <a href="https://wa.me/918107008156" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800', textDecoration: 'underline' }}>
                       +91 8107008156
+                    </a>
+                    <span> / </span>
+                    <a href="https://wa.me/919511544399" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--whatsapp-dark)', fontWeight: '800', textDecoration: 'underline' }}>
+                      +91 9511544399
                     </a>
                   </div>
                   <div><strong>Grievance Resolution SLA:</strong> Acknowledgment within 24 hours; complete investigation and resolution within 7 business days.</div>
