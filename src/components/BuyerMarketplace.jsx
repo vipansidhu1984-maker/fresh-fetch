@@ -21,7 +21,9 @@ import {
   Clock,
   Calendar,
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  PlusCircle,
+  Tractor
 } from 'lucide-react';
 
 export function BuyerMarketplace() {
@@ -45,6 +47,8 @@ export function BuyerMarketplace() {
     addReview,
     activeTab,
     setActiveTab,
+    role,
+    setShowAddProductModal,
     t, 
     language 
   } = useApp();
@@ -263,12 +267,42 @@ export function BuyerMarketplace() {
                 <span>{language === 'hi' ? 'बाज़ार देखें' : 'Browse Marketplace'}</span>
               </button>
             </div>
+          ) : products.length === 0 ? (
+            <div>
+              <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-full)', background: '#dcfce7', color: 'var(--primary-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+                <Tractor size={28} />
+              </div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '0.35rem' }}>
+                {language === 'hi' ? 'बाज़ार में अभी कोई सक्रिय लिस्टिंग नहीं है' : language === 'pa' ? 'ਮਾਰਕੀਟ ਵਿੱਚ ਅਜੇ ਕੋਈ ਉਤਪਾਦ ਨਹੀਂ ਹੈ' : 'No Listings on Marketplace Yet'}
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem', maxWidth: '380px', margin: '0 auto 1rem' }}>
+                {language === 'hi' 
+                  ? 'जैसे ही क्षेत्र के किसान अपने शुद्ध उत्पाद (देसी घी, कच्ची घाणी तेल, मसाले) जोड़ेंगे, वे यहाँ सीधे दिखाई देंगे।' 
+                  : language === 'pa'
+                  ? 'ਜਿਵੇਂ ਹੀ ਖੇਤਰ ਦੇ ਕਿਸਾਨ ਆਪਣੇ ਸ਼ੁੱਧ ਉਤਪਾਦ ਸ਼ਾਮਲ ਕਰਨਗੇ, ਉਹ ਇੱਥੇ ਦਿਖਾਈ ਦੇਣਗੇ।'
+                  : 'Real produce listings posted directly by verified local farmers will appear here live.'}
+              </p>
+              <button
+                className="btn-primary"
+                style={{ width: 'auto', margin: '0.5rem auto 0', gap: '0.4rem' }}
+                onClick={() => {
+                  if (role === 'producer') {
+                    setShowAddProductModal(true);
+                  } else {
+                    setActiveTab('listings');
+                  }
+                }}
+              >
+                <PlusCircle size={16} />
+                <span>{language === 'hi' ? '🚜 किसान: नया उत्पाद जोड़ें' : '🚜 Farmers: Add Produce Listing'}</span>
+              </button>
+            </div>
           ) : (
             <div>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🔍</div>
               <h3 style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '0.35rem' }}>{t('noProductsFound')}</h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                {language === 'hi' ? 'कोई नया या ताज़ा उत्पाद उपलब्ध नहीं है या अवधि समाप्त हो चुकी है।' : 'No fresh items currently available or items have completed their freshness duration.'}
+                {language === 'hi' ? 'चयनित फ़िल्टर के अनुसार कोई उत्पाद नहीं मिला।' : 'No products matched your selected filters.'}
               </p>
               <button
                 className="btn-secondary"

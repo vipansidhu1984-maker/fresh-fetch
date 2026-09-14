@@ -46,7 +46,103 @@ export function SettingsModal() {
         </div>
 
         <div className="modal-body">
-          {/* 1. Dedicated Dark Mode Switcher */}
+          {/* 1. Primary Language Selection Section */}
+          <div 
+            style={{ 
+              background: darkMode ? '#1e293b' : '#f0fdf4', 
+              borderRadius: 'var(--radius-lg)', 
+              padding: '1.1rem',
+              marginBottom: '1rem',
+              border: darkMode ? '1.5px solid #334155' : '1.5px solid #bbf7d0',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: '800', fontSize: '0.95rem', color: darkMode ? '#f8fafc' : 'var(--primary-forest)' }}>
+                <Globe size={18} />
+                <span>{language === 'hi' ? 'भाषा चुनें (Select Language)' : language === 'pa' ? 'ਭਾਸ਼ਾ ਚੁਣੋ (Select Language)' : 'Select Language / भाषा चुनें'}</span>
+              </div>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary-emerald)', background: darkMode ? '#0f172a' : '#ffffff', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+                {language === 'en' ? 'English' : language === 'hi' ? 'हिंदी' : 'ਪੰਜਾਬੀ'}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => switchLanguage('en')}
+                style={{
+                  padding: '0.65rem 0.4rem',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                  background: language === 'en' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
+                  color: language === 'en' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-primary)'),
+                  border: language === 'en' ? '2px solid var(--primary-forest)' : (darkMode ? '1px solid #334155' : '1.5px solid var(--card-border)'),
+                  cursor: 'pointer',
+                  boxShadow: language === 'en' ? 'var(--shadow-sm)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <span>English</span>
+                <span style={{ fontSize: '0.68rem', opacity: language === 'en' ? 0.9 : 0.6, fontWeight: '600' }}>English</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchLanguage('hi')}
+                style={{
+                  padding: '0.65rem 0.4rem',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                  background: language === 'hi' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
+                  color: language === 'hi' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-primary)'),
+                  border: language === 'hi' ? '2px solid var(--primary-forest)' : (darkMode ? '1px solid #334155' : '1.5px solid var(--card-border)'),
+                  cursor: 'pointer',
+                  boxShadow: language === 'hi' ? 'var(--shadow-sm)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <span>हिंदी</span>
+                <span style={{ fontSize: '0.68rem', opacity: language === 'hi' ? 0.9 : 0.6, fontWeight: '600' }}>Hindi</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchLanguage('pa')}
+                style={{
+                  padding: '0.65rem 0.4rem',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.2rem',
+                  background: language === 'pa' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
+                  color: language === 'pa' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-primary)'),
+                  border: language === 'pa' ? '2px solid var(--primary-forest)' : (darkMode ? '1px solid #334155' : '1.5px solid var(--card-border)'),
+                  cursor: 'pointer',
+                  boxShadow: language === 'pa' ? 'var(--shadow-sm)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <span>ਪੰਜਾਬੀ</span>
+                <span style={{ fontSize: '0.68rem', opacity: language === 'pa' ? 0.9 : 0.6, fontWeight: '600' }}>Punjabi</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Dedicated Dark Mode Switcher */}
           <div 
             style={{ 
               background: darkMode ? '#1e293b' : '#f8fafc', 
@@ -118,7 +214,7 @@ export function SettingsModal() {
             </button>
           </div>
 
-          {/* 2. Dedicated Privacy Policy & Terms Button */}
+          {/* 3. Dedicated Privacy Policy & Terms Button */}
           <div style={{ marginBottom: '0.75rem' }}>
             <button
               onClick={() => {
@@ -155,7 +251,7 @@ export function SettingsModal() {
             </button>
           </div>
 
-          {/* 3. Dedicated Our Mission & Story Button */}
+          {/* 4. Dedicated Our Mission & Story Button */}
           <div style={{ marginBottom: '1rem' }}>
             <button
               onClick={() => {
@@ -190,66 +286,6 @@ export function SettingsModal() {
               </div>
               <ChevronRight size={18} color="var(--accent-gold)" />
             </button>
-          </div>
-
-          {/* 3. Language Selector Inside Settings */}
-          <div 
-            style={{ 
-              background: darkMode ? '#1e293b' : 'var(--bg-subtle)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '0.85rem',
-              marginBottom: '1rem',
-              border: darkMode ? '1px solid #334155' : '1px solid var(--card-border)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem', fontWeight: '800', fontSize: '0.82rem', color: darkMode ? '#f8fafc' : 'var(--primary-forest)' }}>
-              <Globe size={15} />
-              <span>{t('step1Title')}</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
-              <button
-                onClick={() => switchLanguage('en')}
-                style={{
-                  padding: '0.45rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  background: language === 'en' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
-                  color: language === 'en' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-secondary)'),
-                  border: '1px solid var(--card-border)'
-                }}
-              >
-                English
-              </button>
-              <button
-                onClick={() => switchLanguage('hi')}
-                style={{
-                  padding: '0.45rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  background: language === 'hi' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
-                  color: language === 'hi' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-secondary)'),
-                  border: '1px solid var(--card-border)'
-                }}
-              >
-                हिंदी
-              </button>
-              <button
-                onClick={() => switchLanguage('pa')}
-                style={{
-                  padding: '0.45rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  background: language === 'pa' ? 'var(--primary-forest)' : (darkMode ? '#0f172a' : '#ffffff'),
-                  color: language === 'pa' ? '#ffffff' : (darkMode ? '#cbd5e1' : 'var(--text-secondary)'),
-                  border: '1px solid var(--card-border)'
-                }}
-              >
-                ਪੰਜਾਬੀ
-              </button>
-            </div>
           </div>
 
           {/* 4. Support Helpline Link */}

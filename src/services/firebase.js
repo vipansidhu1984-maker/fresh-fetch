@@ -169,12 +169,18 @@ export function subscribeToCloudProducts(onUpdate, onError) {
   if (!isFirebaseConfigured || !db) return () => {};
 
   try {
-    const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    const colRef = collection(db, 'products');
+    return onSnapshot(colRef, (snapshot) => {
       const products = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      // Sort newest first
+      products.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+        return timeB - timeA;
+      });
       onUpdate(products);
     }, (err) => {
       console.warn("Firestore products sync listener warning:", err);

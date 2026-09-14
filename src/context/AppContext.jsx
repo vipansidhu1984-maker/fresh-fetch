@@ -98,14 +98,20 @@ export function AppProvider({ children }) {
   // Active Bottom Nav Tab
   const [activeTab, setActiveTab] = useState('marketplace');
 
-  // Products state
+  // Products state (Real farmer listings only - no fake dummy products)
   const [products, setProducts] = useState(() => {
-    return safeJsonParse('freshfetch_products', INITIAL_PRODUCTS);
+    const saved = safeJsonParse('freshfetch_products', []);
+    const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
+    const fakeSellers = ['farmer-ramesh', 'farmer-harpreet', 'farmer-balwinder', 'farmer-gurmeet', 'farmer-manpreet', 'farmer-satnam'];
+    return (Array.isArray(saved) ? saved : []).filter(
+      (p) => p && p.id && !fakeIds.includes(p.id) && !fakeSellers.includes(p.sellerId)
+    );
   });
 
   // In-App Chat Threads state
   const [chats, setChats] = useState(() => {
-    return safeJsonParse('freshfetch_chats', INITIAL_CHATS);
+    const saved = safeJsonParse('freshfetch_chats', []);
+    return Array.isArray(saved) ? saved : [];
   });
   const [activeChat, setActiveChat] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -118,9 +124,12 @@ export function AppProvider({ children }) {
     );
   });
 
-  // Wishlist
+  // Wishlist (Clear by default for new users)
   const [wishlist, setWishlist] = useState(() => {
-    return safeJsonParse('freshfetch_wishlist', ['prod-1', 'prod-3']);
+    const saved = safeJsonParse('freshfetch_wishlist', []);
+    return (Array.isArray(saved) ? saved : []).filter(
+      (id) => id && id !== 'prod-1' && id !== 'prod-3'
+    );
   });
 
   // UI Filter states
@@ -198,10 +207,15 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
 
-    // 1. Subscribe to Live Cloud Products
+    // 1. Subscribe to Live Cloud Products (Real farmer listings only)
     const unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
-      if (cloudProds && cloudProds.length > 0) {
-        setProducts(cloudProds);
+      if (cloudProds) {
+        const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
+        const fakeSellers = ['farmer-ramesh', 'farmer-harpreet', 'farmer-balwinder', 'farmer-gurmeet', 'farmer-manpreet', 'farmer-satnam'];
+        const realProds = cloudProds.filter(
+          (p) => p && p.id && !fakeIds.includes(p.id) && !fakeSellers.includes(p.sellerId)
+        );
+        setProducts(realProds);
       }
     });
 

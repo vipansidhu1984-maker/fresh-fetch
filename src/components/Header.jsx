@@ -50,28 +50,6 @@ export function Header() {
 
         {/* Action Controls */}
         <div className="header-actions">
-          {/* Language Switcher */}
-          <div className="lang-selector-group" title="Select Language / भाषा चुनें">
-            <button
-              className={`lang-btn ${language === 'en' ? 'active' : ''}`}
-              onClick={() => switchLanguage('en')}
-            >
-              EN
-            </button>
-            <button
-              className={`lang-btn ${language === 'hi' ? 'active' : ''}`}
-              onClick={() => switchLanguage('hi')}
-            >
-              हिंदी
-            </button>
-            <button
-              className={`lang-btn ${language === 'pa' ? 'active' : ''}`}
-              onClick={() => switchLanguage('pa')}
-            >
-              ਪੰਜਾਬੀ
-            </button>
-          </div>
-
           {/* User Auth Profile / Login */}
           {currentUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
