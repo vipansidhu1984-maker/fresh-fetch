@@ -1,0 +1,19 @@
+{
+  "name": "Fresh Fetch - खेत से सीधा आपकी रसोई तक",
+  "short_name": "Fresh Fetch",
+  "description": "Direct from Hanumangarh & Sri Ganganagar farmers to city homes. 100% Pure Desi Ghee, Stone-ground Spices & Farm Produce.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#14532d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "food", "lifestyle"]
+}
