@@ -110,28 +110,12 @@ export function AppProvider({ children }) {
   const [activeChat, setActiveChat] = useState(null);
   const [showChatModal, setShowChatModal] = useState(false);
 
-  // Inquiries tracking
+  // Inquiries tracking (Clear by default for new users)
   const [inquiries, setInquiries] = useState(() => {
-    return safeJsonParse('freshfetch_inquiries', [
-      {
-        id: 'inq-1',
-        productId: 'prod-1',
-        productTitle: 'A2 Vedic Bilona Desi Cow Ghee',
-        buyerPhone: '9822098765',
-        sellerId: 'farmer-ramesh',
-        timestamp: '2026-09-12 16:30',
-        qty: '2 kg'
-      },
-      {
-        id: 'inq-2',
-        productId: 'prod-4',
-        productTitle: 'Stone-Pounded Rajasthani Lakadong Haldi',
-        buyerPhone: '9414055443',
-        sellerId: 'farmer-harpreet',
-        timestamp: '2026-09-13 09:15',
-        qty: '1 kg'
-      }
-    ]);
+    const saved = safeJsonParse('freshfetch_inquiries', []);
+    return (Array.isArray(saved) ? saved : []).filter(
+      (i) => i && i.id && i.id !== 'inq-1' && i.id !== 'inq-2'
+    );
   });
 
   // Wishlist
@@ -817,6 +801,7 @@ export function AppProvider({ children }) {
       productTitle: product.title,
       buyerPhone: currentUser?.phone || 'City Buyer',
       sellerId: product.sellerId,
+      sellerPhone: product.sellerWhatsApp || product.sellerPhone || '',
       timestamp: new Date().toLocaleString(),
       qty: product.minOrder || '1 unit'
     };

@@ -26,6 +26,10 @@ export function BottomNav() {
     language 
   } = useApp();
 
+  const myInquiries = (inquiries || []).filter(
+    (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
+  );
+
   return (
     <nav className="mobile-bottom-nav">
       {role === 'producer' ? (
@@ -45,8 +49,8 @@ export function BottomNav() {
             style={{ position: 'relative' }}
           >
             <MessageCircle size={20} />
-            {inquiries.length > 0 && (
-              <span className="nav-badge-count">{inquiries.length}</span>
+            {myInquiries.length > 0 && (
+              <span className="nav-badge-count">{myInquiries.length}</span>
             )}
             <span>{t('navInquiries')}</span>
           </button>

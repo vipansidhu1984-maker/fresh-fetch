@@ -45,12 +45,17 @@ export function SellerDashboard() {
 
   // Filter products by current seller
   const myProducts = products.filter(
-    (p) => p.sellerId === (currentUser?.id || 'farmer-ramesh')
+    (p) => currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : p.sellerId === 'farmer-ramesh'
   );
 
   // Filter chats by current seller
   const myChats = (chats || []).filter(
-    (c) => c.sellerId === (currentUser?.id || 'farmer-ramesh') || c.sellerName?.includes(currentUser?.name?.split(' ')[0] || 'Ramesh')
+    (c) => currentUser ? (c.sellerId === currentUser.id || c.sellerPhone === currentUser.phone) : c.sellerId === 'farmer-ramesh'
+  );
+
+  // Filter inquiries / WhatsApp leads by current seller
+  const myInquiries = (inquiries || []).filter(
+    (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
   );
 
   // Price & Quantity inline editing
@@ -113,7 +118,7 @@ export function SellerDashboard() {
             </div>
             <p className="seller-welcome-sub">
               {isLeadsView ? (
-                <span>💬 {inquiries.length} {language === 'hi' ? 'खरीदारों ने व्हाट्सएप पर संपर्क किया' : 'buyer inquiries received on WhatsApp'}</span>
+                <span>💬 {myInquiries.length} {language === 'hi' ? 'खरीदारों ने व्हाट्सएप पर संपर्क किया' : 'buyer inquiries received on WhatsApp'}</span>
               ) : (
                 <span>📍 {currentUser?.farmName ? `${currentUser.farmName} • ` : ''}{currentUser?.location || 'Sangaria, Hanumangarh'}</span>
               )}
@@ -184,7 +189,7 @@ export function SellerDashboard() {
             <MessageCircle size={22} />
           </div>
           <div style={{ flex: 1 }}>
-            <div className="stat-val">{inquiries.length}</div>
+            <div className="stat-val">{myInquiries.length}</div>
             <div className="stat-label">{t('whatsappLeads')}</div>
           </div>
           {isLeadsView && (
@@ -294,7 +299,7 @@ export function SellerDashboard() {
               <div>
                 <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <MessageCircle size={20} color="var(--whatsapp-dark)" />
-                  <span>{t('whatsappLeads')} ({inquiries.length})</span>
+                  <span>{t('whatsappLeads')} ({myInquiries.length})</span>
                 </h2>
               </div>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
@@ -303,7 +308,7 @@ export function SellerDashboard() {
             </div>
 
             <div style={{ background: 'var(--surface)', backdropFilter: 'blur(12px)', borderRadius: 'var(--radius-lg)', border: '1.5px solid var(--card-border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-              {inquiries.length === 0 ? (
+              {myInquiries.length === 0 ? (
                 <div className="empty-state-box" style={{ padding: '2rem 1.5rem' }}>
                   <MessageCircle size={40} color="var(--text-muted)" style={{ margin: '0 auto 0.75rem' }} />
                   <h3 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '0.35rem' }}>
@@ -317,7 +322,7 @@ export function SellerDashboard() {
                 </div>
               ) : (
                 <div>
-                  {inquiries.map((inq, idx) => (
+                  {myInquiries.map((inq, idx) => (
                     <div 
                       key={inq.id || idx}
                       style={{ 
@@ -325,7 +330,7 @@ export function SellerDashboard() {
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between',
-                        borderBottom: idx === inquiries.length - 1 ? 'none' : '1px solid var(--card-border)',
+                        borderBottom: idx === myInquiries.length - 1 ? 'none' : '1px solid var(--card-border)',
                         gap: '1rem',
                         flexWrap: 'wrap'
                       }}

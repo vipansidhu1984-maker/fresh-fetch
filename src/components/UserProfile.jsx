@@ -41,7 +41,15 @@ export function UserProfile() {
   } = useApp();
 
   const myProducts = products.filter(
-    (p) => p.sellerId === (currentUser?.id || 'farmer-ramesh')
+    (p) => currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : p.sellerId === 'farmer-ramesh'
+  );
+
+  const myInquiries = (inquiries || []).filter(
+    (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
+  );
+
+  const buyerInquiries = (inquiries || []).filter(
+    (inq) => currentUser ? (inq.buyerPhone === currentUser.phone) : false
   );
 
   const handleLogout = () => {
@@ -293,7 +301,7 @@ export function UserProfile() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>{t('totalProducts')}</div>
               </div>
               <div style={{ background: '#ecfdf5', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid #a7f3d0' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{inquiries.length}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{myInquiries.length}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>{t('whatsappLeads')}</div>
               </div>
             </div>
@@ -316,7 +324,7 @@ export function UserProfile() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>{t('navWishlist')}</div>
               </div>
               <div style={{ background: '#ecfdf5', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid #a7f3d0' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{inquiries.length}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{buyerInquiries.length}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Orders Contacted</div>
               </div>
             </div>
