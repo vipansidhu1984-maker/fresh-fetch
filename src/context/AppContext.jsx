@@ -212,35 +212,77 @@ export function AppProvider({ children }) {
     localStorage.setItem('freshfetch_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // Real-time Cloud Synchronization (Google Cloud Firestore 24/7)
+  // Real-time Cloud Synchronization (Google Cloud Firestore 24/7 & Cross-Tab)
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
-
-    // 1. Subscribe to Live Cloud Products (Real farmer listings only)
-    const unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
-      if (cloudProds && Array.isArray(cloudProds)) {
-        const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-        const realProds = cloudProds.filter(
-          (p) => p && p.id && !fakeIds.includes(p.id)
-        );
-        setProducts(realProds);
-      }
-    });
-
-    // 2. Subscribe to Live User Chats
+    let unsubscribeProducts = () => {};
     let unsubscribeChats = () => {};
-    if (currentUser?.id || currentUser?.phone) {
-      const uId = currentUser.id || currentUser.phone;
-      unsubscribeChats = subscribeToUserChats(uId, role || 'buyer', (cloudChats) => {
-        if (cloudChats && cloudChats.length > 0) {
-          setChats(cloudChats);
+
+    if (isFirebaseConfigured) {
+      // 1. Subscribe to Live Cloud Products (Real farmer listings only)
+      unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
+        if (cloudProds && Array.isArray(cloudProds)) {
+          const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
+          const realCloudProds = cloudProds.filter(
+            (p) => p && p.id && !fakeIds.includes(p.id)
+          );
+
+          setProducts((prev) => {
+            const cloudMap = new Map();
+            realCloudProds.forEach((p) => cloudMap.set(p.id, p));
+
+            // Merge cloud products with any locally added products so newly listed items are always broadcasted!
+            const merged = [...realCloudProds];
+            (prev || []).forEach((localProd) => {
+              if (localProd && localProd.id && !fakeIds.includes(localProd.id) && !cloudMap.has(localProd.id)) {
+                merged.push(localProd);
+                // Ensure locally created product is uploaded to Cloud Firestore for other users to see
+                saveProductToCloud(localProd);
+              }
+            });
+            return merged;
+          });
         }
       });
+
+      // 2. Subscribe to Live User Chats
+      if (currentUser?.id || currentUser?.phone) {
+        const uId = currentUser.id || currentUser.phone;
+        unsubscribeChats = subscribeToUserChats(uId, role || 'buyer', (cloudChats) => {
+          if (cloudChats && cloudChats.length > 0) {
+            setChats(cloudChats);
+          }
+        });
+      }
     }
+
+    // 3. Cross-Tab Local Storage Synchronization (so other tabs/users immediately receive new listings)
+    const handleStorage = (e) => {
+      if (e.key === 'freshfetch_products' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
+            const valid = parsed.filter((p) => p && p.id && !fakeIds.includes(p.id));
+            setProducts((prev) => {
+              const prevIds = new Set((prev || []).map((p) => p.id));
+              const hasNew = valid.some((p) => !prevIds.has(p.id));
+              if (hasNew || valid.length !== (prev || []).length) {
+                return valid;
+              }
+              return prev;
+            });
+          }
+        } catch (err) {
+          console.warn("Storage sync error:", err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       unsubscribeProducts();
       unsubscribeChats();
+      window.removeEventListener('storage', handleStorage);
     };
   }, [currentUser?.id, currentUser?.phone, role]);
 
@@ -812,27 +854,38 @@ export function AppProvider({ children }) {
     const productObj = {
       ...newProduct,
       id: `prod-${Date.now()}`,
+      title: (newProduct.title || '').trim(),
+      category: newProduct.category || 'ghee',
+      price: Number(newProduct.price) || 0,
+      unit: newProduct.unit || 'kg',
+      availableQty: newProduct.availableQty || '25 kg',
+      minOrder: newProduct.minOrder || '1 unit',
+      shelfLifeDays,
+      expiryDate,
+      image: newProduct.image || 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=800&q=80',
+      purityBadge: newProduct.purityBadge || '100% Pure Direct',
+      purityMethod: (newProduct.purityMethod || '').trim(),
+      processMedia: Array.isArray(newProduct.processMedia) ? newProduct.processMedia : [],
       sellerId: currentUser?.id || (currentUser?.phone ? `farmer-${currentUser.phone}` : `farmer-${Date.now()}`),
       sellerName: currentUser?.name || 'Local Verified Farmer',
       sellerPhone: currentUser?.phone || '',
       sellerWhatsApp: currentUser?.phone ? `91${currentUser.phone.replace(/\D/g, '')}` : '',
       showWhatsApp: currentUser?.showWhatsApp !== false,
       showPhone: currentUser?.showPhone !== false,
-      sellerLocation: currentUser?.location || 'Hanumangarh',
-      regionId: currentUser?.regionId || 'hnm-town',
-      farmName: currentUser?.farmName || '',
-      availableQty: newProduct.availableQty || '25 kg',
-      shelfLifeDays,
-      expiryDate,
+      sellerLocation: newProduct.sellerLocation || currentUser?.location || 'Sangaria, Hanumangarh',
+      regionId: newProduct.regionId || currentUser?.regionId || 'hnm-sangaria',
+      farmName: currentUser?.farmName || (currentUser?.name ? `${currentUser.name}'s Farm` : 'Organic Farm'),
       verified: true,
       inStock: true,
+      outOfStockReported: false,
       rating: 0,
       reviewsCount: 0,
       reviews: [],
       videoUrl: (newProduct.videoUrl || '').trim(),
       createdDate: new Date().toISOString().split('T')[0]
     };
-    setProducts((prev) => [productObj, ...prev]);
+
+    setProducts((prev) => [productObj, ...(prev || [])]);
 
     // Save to Cloud Firestore
     saveProductToCloud(productObj);

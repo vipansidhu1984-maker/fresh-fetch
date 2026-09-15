@@ -87,9 +87,11 @@ export function BuyerMarketplace() {
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   // Filter products by region, category, search, freshness, and WISHLIST if in saved view
-  const filteredProducts = products.filter((prod) => {
+  const filteredProducts = (products || []).filter((prod) => {
+    if (!prod || !prod.id) return false;
+
     // 1. If in Saved / Wishlist tab, must be in user's saved wishlist
-    if (isWishlistView && !wishlist.includes(prod.id)) {
+    if (isWishlistView && !(wishlist || []).includes(prod.id)) {
       return false;
     }
 
@@ -98,15 +100,25 @@ export function BuyerMarketplace() {
       return false;
     }
 
-    const matchCategory = selectedCategory === 'all' || prod.category === selectedCategory;
-    const matchRegion = selectedRegion === 'all' || prod.regionId === selectedRegion;
-    const query = searchQuery.toLowerCase().trim();
+    const matchCategory = 
+      selectedCategory === 'all' || 
+      !prod.category || 
+      (prod.category && prod.category.toLowerCase() === selectedCategory.toLowerCase());
+
+    const matchRegion = 
+      selectedRegion === 'all' || 
+      !prod.regionId || 
+      prod.regionId === selectedRegion ||
+      prod.regionId === 'all';
+
+    const query = (searchQuery || '').toLowerCase().trim();
     const matchSearch =
       !query ||
-      prod.title.toLowerCase().includes(query) ||
-      prod.purityBadge.toLowerCase().includes(query) ||
-      prod.sellerName.toLowerCase().includes(query) ||
-      prod.sellerLocation.toLowerCase().includes(query);
+      (prod.title && prod.title.toLowerCase().includes(query)) ||
+      (prod.purityBadge && prod.purityBadge.toLowerCase().includes(query)) ||
+      (prod.sellerName && prod.sellerName.toLowerCase().includes(query)) ||
+      (prod.sellerLocation && prod.sellerLocation.toLowerCase().includes(query)) ||
+      (prod.category && prod.category.toLowerCase().includes(query));
 
     return matchCategory && matchRegion && matchSearch;
   });

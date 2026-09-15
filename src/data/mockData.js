@@ -56,7 +56,7 @@ export function calculateExpiryDate(days) {
 
 // Check if a product is fresh and unexpired
 export function isProductFresh(product) {
-  if (!product.expiryDate) return true;
+  if (!product || !product.expiryDate) return true;
   const today = new Date().toISOString().split('T')[0];
   return product.expiryDate >= today;
 }

@@ -224,19 +224,38 @@ export function subscribeToCloudProducts(onUpdate, onError) {
   }
 }
 
+// Helper to sanitize objects and remove any undefined fields before sending to Firestore
+function sanitizeForFirestore(obj) {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item));
+  }
+  const result = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      result[key] = sanitizeForFirestore(val);
+    }
+  }
+  return result;
+}
+
 /**
  * Save / Create a new product in Firestore
  */
 export async function saveProductToCloud(product) {
-  if (!isFirebaseConfigured || !db) return { success: false, offline: true };
+  if (!isFirebaseConfigured || !db || !product?.id) return { success: false, offline: true };
 
   try {
+    const sanitized = sanitizeForFirestore(product);
     const docRef = doc(db, 'products', product.id);
     await setDoc(docRef, {
-      ...product,
+      ...sanitized,
       updatedAt: serverTimestamp(),
-      createdAt: product.createdAt || serverTimestamp()
+      createdAt: sanitized.createdAt || serverTimestamp()
     }, { merge: true });
+    console.log(`✅ Product ${product.id} synced to Cloud Firestore successfully.`);
     return { success: true };
   } catch (err) {
     console.error("Error saving product to Firestore:", err);
@@ -266,9 +285,10 @@ export async function updateProductInCloud(productId, updates) {
   if (!isFirebaseConfigured || !db) return { success: false, offline: true };
 
   try {
+    const sanitized = sanitizeForFirestore(updates);
     const docRef = doc(db, 'products', productId);
     await updateDoc(docRef, {
-      ...updates,
+      ...sanitized,
       updatedAt: serverTimestamp()
     });
     return { success: true };
@@ -436,8 +456,9 @@ export async function saveUserToCloud(user) {
   try {
     const cleanPhone = user.phone.replace(/\D/g, '');
     const userDoc = doc(db, 'users', cleanPhone);
+    const sanitized = sanitizeForFirestore(user);
     await setDoc(userDoc, {
-      ...user,
+      ...sanitized,
       phone: cleanPhone,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -466,12 +487,13 @@ export async function fetchUserFromCloud(phone) {
 }
 
 export async function saveInquiryToCloud(inquiry) {
-  if (!isFirebaseConfigured || !db) return { success: false, offline: true };
+  if (!isFirebaseConfigured || !db || !inquiry?.id) return { success: false, offline: true };
 
   try {
+    const sanitized = sanitizeForFirestore(inquiry);
     const inqDoc = doc(db, 'inquiries', inquiry.id);
     await setDoc(inqDoc, {
-      ...inquiry,
+      ...sanitized,
       timestamp: serverTimestamp()
     }, { merge: true });
     return { success: true };
