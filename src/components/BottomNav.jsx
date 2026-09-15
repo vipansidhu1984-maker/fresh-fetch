@@ -20,6 +20,8 @@ export function BottomNav() {
     setActiveTab, 
     wishlist, 
     inquiries, 
+    chats,
+    readInquiryIds,
     currentUser,
     logout,
     t, 
@@ -29,6 +31,15 @@ export function BottomNav() {
   const myInquiries = (inquiries || []).filter(
     (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
   );
+
+  const myChats = (chats || []).filter(
+    (c) => currentUser ? (c.sellerId === currentUser.id || c.sellerPhone === currentUser.phone) : c.sellerId === 'farmer-ramesh'
+  );
+
+  // Count unread WhatsApp inquiries and unread chat messages
+  const unreadInquiries = myInquiries.filter((inq) => !(readInquiryIds || []).includes(inq.id));
+  const unreadChatsCount = myChats.reduce((sum, c) => sum + (c.unreadCountFarmer || 0), 0);
+  const totalUnreadLeads = unreadInquiries.length + unreadChatsCount;
 
   return (
     <nav className="mobile-bottom-nav">
@@ -49,8 +60,8 @@ export function BottomNav() {
             style={{ position: 'relative' }}
           >
             <MessageCircle size={20} />
-            {myInquiries.length > 0 && (
-              <span className="nav-badge-count">{myInquiries.length}</span>
+            {totalUnreadLeads > 0 && (
+              <span className="nav-badge-count">{totalUnreadLeads}</span>
             )}
             <span>{t('navInquiries')}</span>
           </button>

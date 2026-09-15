@@ -21,6 +21,7 @@ import {
   subscribeToUserChats,
   sendChatMessageToCloud,
   createChatInCloud,
+  markChatReadInCloud,
   saveInquiryToCloud,
   sendFirebasePhoneOtp,
   verifyFirebasePhoneOtp,
@@ -123,6 +124,11 @@ export function AppProvider({ children }) {
     );
   });
 
+  // Read / Viewed Inquiry IDs tracking (to clear unread red count badge when farmer views leads)
+  const [readInquiryIds, setReadInquiryIds] = useState(() => {
+    return safeJsonParse('freshfetch_read_inquiries', []);
+  });
+
   // Wishlist (Clear by default for new users)
   const [wishlist, setWishlist] = useState(() => {
     const saved = safeJsonParse('freshfetch_wishlist', []);
@@ -197,6 +203,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('freshfetch_inquiries', JSON.stringify(inquiries));
   }, [inquiries]);
+
+  useEffect(() => {
+    localStorage.setItem('freshfetch_read_inquiries', JSON.stringify(readInquiryIds));
+  }, [readInquiryIds]);
 
   useEffect(() => {
     localStorage.setItem('freshfetch_wishlist', JSON.stringify(wishlist));
@@ -568,7 +578,52 @@ export function AppProvider({ children }) {
     localStorage.removeItem('freshfetch_role');
   };
 
-  // --- IN-APP CHAT METHODS ---
+  // --- IN-APP CHAT & LEADS METHODS ---
+
+  // Mark all farmer leads (WhatsApp inquiries and chat unread counters) as viewed/read
+  const markFarmerLeadsAsRead = () => {
+    // 1. Mark inquiries as read
+    const currentMyInquiryIds = (inquiries || [])
+      .filter((inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh')
+      .map((i) => i.id);
+
+    if (currentMyInquiryIds.length > 0) {
+      setReadInquiryIds((prev) => {
+        const combined = Array.from(new Set([...prev, ...currentMyInquiryIds]));
+        return combined;
+      });
+    }
+
+    // 2. Clear unread chat counts for farmer
+    setChats((prev) =>
+      prev.map((c) => {
+        const isMyChat = currentUser
+          ? (c.sellerId === currentUser.id || c.sellerPhone === currentUser.phone)
+          : c.sellerId === 'farmer-ramesh';
+        if (isMyChat && c.unreadCountFarmer > 0) {
+          markChatReadInCloud(c.id, 'producer');
+          return { ...c, unreadCountFarmer: 0 };
+        }
+        return c;
+      })
+    );
+  };
+
+  // Mark single chat as read
+  const markChatAsRead = (chatId, userRole = (role || 'producer')) => {
+    const isProducer = userRole === 'producer';
+    setChats((prev) =>
+      prev.map((c) => {
+        if (c.id !== chatId) return c;
+        return {
+          ...c,
+          unreadCountFarmer: isProducer ? 0 : c.unreadCountFarmer,
+          unreadCountBuyer: !isProducer ? 0 : c.unreadCountBuyer
+        };
+      })
+    );
+    markChatReadInCloud(chatId, isProducer ? 'producer' : 'buyer');
+  };
 
   // Open chat with farmer for a given product
   const openChatWithProduct = (product) => {
@@ -589,15 +644,20 @@ export function AppProvider({ children }) {
     ) || chats.find((c) => c.productId === product.id);
 
     if (existingChat) {
+      const isFarmer = role === 'producer';
       const updatedChat = {
         ...existingChat,
+        unreadCountFarmer: isFarmer ? 0 : existingChat.unreadCountFarmer,
+        unreadCountBuyer: !isFarmer ? 0 : existingChat.unreadCountBuyer,
         showWhatsApp: isWhatsAppOn,
         showPhone: isPhoneOn,
         sellerWhatsApp: product.sellerWhatsApp || existingChat.sellerWhatsApp,
         sellerPhone: product.sellerPhone || existingChat.sellerPhone
       };
+      setChats((prev) => prev.map((c) => (c.id === existingChat.id ? updatedChat : c)));
       setActiveChat(updatedChat);
       setShowChatModal(true);
+      markChatReadInCloud(existingChat.id, isFarmer ? 'producer' : 'buyer');
       return;
     }
 
@@ -646,8 +706,16 @@ export function AppProvider({ children }) {
   const openChatById = (chatId) => {
     const chat = chats.find((c) => c.id === chatId);
     if (chat) {
-      setActiveChat(chat);
+      const isFarmer = role === 'producer' || (currentUser && (chat.sellerId === currentUser.id || chat.sellerPhone === currentUser.phone));
+      const updatedChat = {
+        ...chat,
+        unreadCountFarmer: isFarmer ? 0 : chat.unreadCountFarmer,
+        unreadCountBuyer: !isFarmer ? 0 : chat.unreadCountBuyer
+      };
+      setChats((prev) => prev.map((c) => (c.id === chatId ? updatedChat : c)));
+      setActiveChat(updatedChat);
       setShowChatModal(true);
+      markChatReadInCloud(chatId, isFarmer ? 'producer' : 'buyer');
     }
   };
 
@@ -984,6 +1052,9 @@ export function AppProvider({ children }) {
         openChatWithProduct,
         openChatById,
         sendMessage,
+        readInquiryIds,
+        markFarmerLeadsAsRead,
+        markChatAsRead,
         isFirebaseConfigured,
         sendFirebasePhoneOtp,
         verifyFirebasePhoneOtp,

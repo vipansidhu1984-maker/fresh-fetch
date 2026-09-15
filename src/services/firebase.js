@@ -407,6 +407,25 @@ export async function createChatInCloud(chatData) {
   }
 }
 
+/**
+ * Mark a chat thread as read in Firestore
+ */
+export async function markChatReadInCloud(chatId, role = 'producer') {
+  if (!isFirebaseConfigured || !db || !chatId) return { success: false, offline: true };
+
+  try {
+    const chatDoc = doc(db, 'chats', chatId);
+    const updateData = role === 'producer'
+      ? { unreadCountFarmer: 0 }
+      : { unreadCountBuyer: 0 };
+    await updateDoc(chatDoc, updateData);
+    return { success: true };
+  } catch (err) {
+    console.error("Error marking chat read in Firestore:", err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ============================================================================
 // 6. CLOUD FIRESTORE: USER PROFILES, INQUIRIES & REVIEWS
 // ============================================================================

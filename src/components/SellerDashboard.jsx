@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { isProductFresh, getDaysRemaining } from '../data/mockData';
 import { 
@@ -35,6 +35,8 @@ export function SellerDashboard() {
     deleteProduct, 
     inquiries, 
     chats,
+    readInquiryIds,
+    markFarmerLeadsAsRead,
     openChatById,
     activeTab,
     setActiveTab,
@@ -57,6 +59,10 @@ export function SellerDashboard() {
   const myInquiries = (inquiries || []).filter(
     (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
   );
+
+  const unreadInquiries = myInquiries.filter((inq) => !(readInquiryIds || []).includes(inq.id));
+  const unreadChatsCount = myChats.reduce((sum, c) => sum + (c.unreadCountFarmer || 0), 0);
+  const totalUnreadLeads = unreadInquiries.length + unreadChatsCount;
 
   // Price & Quantity inline editing
   const [editingPriceId, setEditingPriceId] = useState(null);
@@ -84,6 +90,13 @@ export function SellerDashboard() {
   };
 
   const isLeadsView = activeTab === 'inquiries';
+
+  // Automatically mark unread leads as read/viewed when farmer is in the leads section
+  useEffect(() => {
+    if (isLeadsView) {
+      markFarmerLeadsAsRead();
+    }
+  }, [isLeadsView, myInquiries.length, myChats.length]);
 
   return (
     <div>
@@ -192,11 +205,15 @@ export function SellerDashboard() {
             <div className="stat-val">{myInquiries.length}</div>
             <div className="stat-label">{t('whatsappLeads')}</div>
           </div>
-          {isLeadsView && (
+          {isLeadsView ? (
             <span style={{ fontSize: '0.72rem', color: 'var(--whatsapp-dark)', fontWeight: '700', background: '#bbf7d0', padding: '2px 8px', borderRadius: '12px' }}>
               Active
             </span>
-          )}
+          ) : totalUnreadLeads > 0 ? (
+            <span style={{ fontSize: '0.72rem', color: '#ffffff', fontWeight: '800', background: '#ef4444', padding: '2px 8px', borderRadius: '12px' }}>
+              {totalUnreadLeads} New
+            </span>
+          ) : null}
         </div>
       </div>
 
