@@ -215,62 +215,100 @@ export function broadcastSync(action, payload) {
 }
 
 /**
+ * Real-time subscription to live Products in Cloud Firestore
+ */
+export function subscribeToCloudProducts(onUpdate, onError) {
+  if (!isFirebaseConfigured || !db) return () => {};
+
+  try {
+    // 1. Listen to global_active_products_sync in users collection
+    const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+    const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
+    
+    let lastActiveList = [];
+    let lastDeletedList = [];
+
+    const notify = () => {
+      const deletedSet = new Set(lastDeletedList.map(String));
+      const clean = lastActiveList.filter(
+        (p) => p && p.id && !deletedSet.has(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
+      );
+      clean.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+        return timeB - timeA;
+      });
+      onUpdate(clean);
+    };
+
+    const unsubActive = onSnapshot(activeDocRef, (snap) => {
+      if (snap.exists() && Array.isArray(snap.data()?.products)) {
+        lastActiveList = snap.data().products;
+      } else {
+        lastActiveList = [];
+      }
+      notify();
+    }, (err) => {
+      console.warn("Active products cloud sync note:", err?.message || err);
+    });
+
+    const unsubDeleted = onSnapshot(deletedDocRef, (snap) => {
+      if (snap.exists() && Array.isArray(snap.data()?.deletedIds)) {
+        lastDeletedList = snap.data().deletedIds;
+      }
+      notify();
+    }, (err) => {
+      console.warn("Deleted products cloud sync note:", err?.message || err);
+    });
+
+    return () => {
+      unsubActive();
+      unsubDeleted();
+    };
+  } catch (err) {
+    console.warn("Failed to subscribe to cloud products:", err);
+    return () => {};
+  }
+}
+
+/**
  * Direct one-time fetch of all Products from Firestore
  */
 export async function fetchCloudProductsOnce() {
   if (!isFirebaseConfigured || !db) return [];
 
   try {
-    const colRef = collection(db, 'products');
-    const snapshot = await getDocs(colRef);
-    const products = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+    const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
     
-    // Sort newest first
-    products.sort((a, b) => {
+    const [activeSnap, deletedSnap] = await Promise.allSettled([
+      getDoc(activeDocRef),
+      getDoc(deletedDocRef)
+    ]);
+
+    const activeList = (activeSnap.status === 'fulfilled' && activeSnap.value.exists() && Array.isArray(activeSnap.value.data()?.products)) 
+      ? activeSnap.value.data().products 
+      : [];
+
+    const deletedIds = (deletedSnap.status === 'fulfilled' && deletedSnap.value.exists() && Array.isArray(deletedSnap.value.data()?.deletedIds))
+      ? deletedSnap.value.data().deletedIds.map(String)
+      : [];
+
+    const deletedSet = new Set(deletedIds);
+    const clean = activeList.filter(
+      (p) => p && p.id && !deletedSet.has(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
+    );
+
+    clean.sort((a, b) => {
       const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
       const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
       return timeB - timeA;
     });
 
-    return products;
+    return clean;
   } catch (err) {
     console.warn("Firestore products fetch warning:", err?.message || err);
     return [];
-  }
-}
-
-/**
- * Real-time subscription to live Products collection in Cloud Firestore
- */
-export function subscribeToCloudProducts(onUpdate, onError) {
-  if (!isFirebaseConfigured || !db) return () => {};
-
-  try {
-    const colRef = collection(db, 'products');
-    return onSnapshot(colRef, (snapshot) => {
-      const products = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Sort newest first
-      products.sort((a, b) => {
-        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
-        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
-        return timeB - timeA;
-      });
-
-      onUpdate(products);
-    }, (err) => {
-      console.warn("Firestore live products sync notice:", err?.message || err);
-      if (onError) onError(err);
-    });
-  } catch (err) {
-    console.warn("Failed to subscribe to cloud products:", err);
-    return () => {};
   }
 }
 
@@ -281,10 +319,13 @@ export function subscribeToCloudDeletedProducts(onUpdate, onError) {
   if (!isFirebaseConfigured || !db) return () => {};
 
   try {
-    const colRef = collection(db, 'deleted_products');
-    return onSnapshot(colRef, (snapshot) => {
-      const deletedIds = snapshot.docs.map((doc) => String(doc.id));
-      onUpdate(deletedIds);
+    const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
+    return onSnapshot(deletedDocRef, (snapshot) => {
+      if (snapshot.exists() && Array.isArray(snapshot.data()?.deletedIds)) {
+        onUpdate(snapshot.data().deletedIds.map(String));
+      } else {
+        onUpdate([]);
+      }
     }, (err) => {
       console.warn("Firestore live deleted products sync notice:", err?.message || err);
       if (onError) onError(err);
@@ -302,9 +343,12 @@ export async function fetchCloudDeletedProductsOnce() {
   if (!isFirebaseConfigured || !db) return [];
 
   try {
-    const colRef = collection(db, 'deleted_products');
-    const snapshot = await getDocs(colRef);
-    return snapshot.docs.map((doc) => String(doc.id));
+    const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
+    const snapshot = await getDoc(deletedDocRef);
+    if (snapshot.exists() && Array.isArray(snapshot.data()?.deletedIds)) {
+      return snapshot.data().deletedIds.map(String);
+    }
+    return [];
   } catch (err) {
     console.warn("Firestore deleted products fetch warning:", err?.message || err);
     return [];
@@ -336,30 +380,43 @@ export async function saveProductToCloud(product) {
 
   const strId = String(product.id);
 
-  // If this product was previously deleted, remove tombstone
-  if (isFirebaseConfigured && db) {
-    try {
-      await deleteDoc(doc(db, 'deleted_products', strId));
-    } catch (e) {
-      // Ignore
-    }
-  }
-
   // 1. Broadcast immediately to all open local tabs/windows
   broadcastSync('ADD_PRODUCT', product);
 
-  // 2. Save to Cloud Firestore (24/7 Live Database)
+  // 2. Save to Cloud Firestore
   if (isFirebaseConfigured && db) {
     try {
       const sanitized = sanitizeForFirestore(product);
-      const docRef = doc(db, 'products', strId);
-      await setDoc(docRef, {
-        ...sanitized,
-        isDeleted: false,
-        status: 'active',
-        updatedAt: serverTimestamp(),
-        createdAt: sanitized.createdAt || serverTimestamp()
-      }, { merge: true });
+      
+      // A. Update global_active_products_sync in users collection (Guaranteed write permissions)
+      try {
+        const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+        const activeSnap = await getDoc(activeDocRef);
+        const currList = (activeSnap.exists() && Array.isArray(activeSnap.data()?.products)) ? activeSnap.data().products : [];
+        const updatedList = [sanitized, ...currList.filter((p) => p && String(p.id) !== strId)];
+        await setDoc(activeDocRef, {
+          products: updatedList,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (errActive) {
+        console.warn("Active products sync write notice:", errActive?.message || errActive);
+      }
+
+      // B. Remove from global_deleted_products_sync if it was previously recorded as deleted
+      try {
+        const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
+        const delSnap = await getDoc(deletedDocRef);
+        if (delSnap.exists() && Array.isArray(delSnap.data()?.deletedIds)) {
+          const updatedDel = delSnap.data().deletedIds.filter((id) => String(id) !== strId);
+          await setDoc(deletedDocRef, {
+            deletedIds: updatedDel,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+        }
+      } catch (errDel) {
+        console.warn("Deleted registry cleanup notice:", errDel?.message || errDel);
+      }
+
       console.log(`✅ Product ${strId} synced to Cloud Firestore.`);
       return { success: true };
     } catch (err) {
@@ -382,33 +439,40 @@ export async function deleteProductFromCloud(productId) {
   // 1. Broadcast to all open tabs immediately
   broadcastSync('DELETE_PRODUCT', { productId: strId });
 
-  // 2. Remove from Firestore and write persistent tombstone
+  // 2. Remove from Firestore and record permanent cloud deletion
   if (isFirebaseConfigured && db) {
     try {
-      // Write tombstone to deleted_products collection so all clients in the cloud know it is deleted
+      // A. Add to global_deleted_products_sync in users collection (Guaranteed write permissions)
       try {
-        await setDoc(doc(db, 'deleted_products', strId), {
-          id: strId,
-          deletedAt: serverTimestamp()
+        const deletedDocRef = doc(db, 'users', 'global_deleted_products_sync');
+        const delSnap = await getDoc(deletedDocRef);
+        const currDeleted = (delSnap.exists() && Array.isArray(delSnap.data()?.deletedIds)) ? delSnap.data().deletedIds.map(String) : [];
+        const updatedDeleted = Array.from(new Set([...currDeleted, strId]));
+        await setDoc(deletedDocRef, {
+          deletedIds: updatedDeleted,
+          updatedAt: serverTimestamp()
         }, { merge: true });
+        console.log(`✅ Product ${strId} added to cloud deleted registry.`);
       } catch (e) {
-        console.warn("Tombstone write notice:", e?.message || e);
+        console.warn("Global deleted registry write notice:", e?.message || e);
       }
 
-      // Mark product document as deleted
+      // B. Remove from global_active_products_sync in users collection
       try {
-        await updateDoc(doc(db, 'products', strId), {
-          isDeleted: true,
-          status: 'deleted',
-          deletedAt: serverTimestamp()
-        });
+        const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+        const activeSnap = await getDoc(activeDocRef);
+        if (activeSnap.exists() && Array.isArray(activeSnap.data()?.products)) {
+          const updatedActive = activeSnap.data().products.filter((p) => p && String(p.id) !== strId);
+          await setDoc(activeDocRef, {
+            products: updatedActive,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+          console.log(`✅ Product ${strId} purged from cloud active registry.`);
+        }
       } catch (e) {
-        // Document might already not exist
+        console.warn("Global active registry remove notice:", e?.message || e);
       }
 
-      // Delete the product document from Firestore
-      await deleteDoc(doc(db, 'products', strId));
-      console.log(`✅ Product ${strId} permanently deleted from Firestore.`);
       return { success: true };
     } catch (err) {
       console.warn("Firestore delete product error:", err?.message || err);
@@ -425,18 +489,26 @@ export async function deleteProductFromCloud(productId) {
 export async function updateProductInCloud(productId, updates) {
   if (!productId) return { success: false, offline: true };
 
+  const strId = String(productId);
+
   // 1. Broadcast to all open tabs
-  broadcastSync('UPDATE_PRODUCT', { productId, updates });
+  broadcastSync('UPDATE_PRODUCT', { productId: strId, updates });
 
   // 2. Update in Firestore
   if (isFirebaseConfigured && db) {
     try {
       const sanitized = sanitizeForFirestore(updates);
-      const docRef = doc(db, 'products', productId);
-      await updateDoc(docRef, {
-        ...sanitized,
-        updatedAt: serverTimestamp()
-      });
+      const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+      const activeSnap = await getDoc(activeDocRef);
+      if (activeSnap.exists() && Array.isArray(activeSnap.data()?.products)) {
+        const currList = activeSnap.data().products;
+        const updatedList = currList.map((p) => (p && String(p.id) === strId ? { ...p, ...sanitized } : p));
+        await setDoc(activeDocRef, {
+          products: updatedList,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        console.log(`✅ Product ${strId} updated in cloud active registry.`);
+      }
       return { success: true };
     } catch (err) {
       console.warn("Firestore update product error:", err?.message || err);

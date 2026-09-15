@@ -23,12 +23,16 @@ import {
   ShoppingBag,
   ArrowRight,
   PlusCircle,
-  Tractor
+  Tractor,
+  Trash2
 } from 'lucide-react';
 
 export function BuyerMarketplace() {
   const { 
+    currentUser,
     products, 
+    deleteProduct,
+    switchRole,
     selectedRegion, 
     setSelectedRegion, 
     selectedCategory, 
@@ -52,6 +56,20 @@ export function BuyerMarketplace() {
     t, 
     language 
   } = useApp();
+
+  const currentPhoneClean = currentUser?.phone ? String(currentUser.phone).replace(/\D/g, '') : '';
+  const currentPhone10 = currentPhoneClean.length >= 10 ? currentPhoneClean.slice(-10) : currentPhoneClean;
+
+  const isProductOwner = (prod) => {
+    if (!currentUser || !prod) return false;
+    if (prod.sellerId && prod.sellerId === currentUser.id) return true;
+    if (currentPhone10) {
+      const prodPhone = prod.sellerPhone ? String(prod.sellerPhone).replace(/\D/g, '') : '';
+      const prodPhone10 = prodPhone.length >= 10 ? prodPhone.slice(-10) : prodPhone;
+      if (prodPhone10 && prodPhone10 === currentPhone10) return true;
+    }
+    return false;
+  };
 
   const isWishlistView = activeTab === 'wishlist';
 
@@ -385,6 +403,41 @@ export function BuyerMarketplace() {
                     {product.inStock ? t('inStock') : t('outOfStock')}
                   </div>
 
+                  {/* Owner Quick Delete Button (Direct Deletion from Market View) */}
+                  {isProductOwner(product) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(language === 'hi' ? 'क्या आप इस उत्पाद लिस्टिंग को हमेशा के लिए हटाना चाहते हैं?' : language === 'pa' ? 'ਕੀ ਤੁਸੀਂ ਇਸ ਉਤਪਾਦ ਨੂੰ ਹਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ?' : 'Are you sure you want to permanently delete this listing?')) {
+                          deleteProduct(product.id);
+                        }
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '0.45rem',
+                        left: '0.45rem',
+                        zIndex: 4,
+                        background: 'rgba(239, 68, 68, 0.92)',
+                        backdropFilter: 'blur(4px)',
+                        color: '#ffffff',
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                        padding: '0.25rem 0.55rem',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.72rem',
+                        fontWeight: '800',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        boxShadow: 'var(--shadow-sm)',
+                        cursor: 'pointer'
+                      }}
+                      title={t('deleteListing')}
+                    >
+                      <Trash2 size={12} />
+                      <span>{language === 'hi' ? 'हटाएं' : 'Delete'}</span>
+                    </button>
+                  )}
+
                   {/* Making Process Video Quick Button - ONLY IF VIDEO UPLOADED */}
                   {Boolean(product.videoUrl && product.videoUrl.trim() && !product.videoUrl.includes('sample_drive_video')) && (
                     <button
@@ -648,45 +701,108 @@ export function BuyerMarketplace() {
                 </div>
               </div>
 
-              {/* Primary In-App Chat + Secondary WhatsApp & Call Buttons (Honoring Farmer Privacy Toggles) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
-                <button
-                  className="btn-chat-primary"
-                  style={{ width: '100%', padding: '0.85rem 1rem', fontSize: '0.95rem', justifyContent: 'center' }}
-                  onClick={() => {
-                    openChatWithProduct(selectedProductDetail);
-                    setSelectedProductDetail(null);
-                  }}
-                >
-                  <MessageSquare size={19} />
-                  <span>{t('chatWithFarmer')}</span>
-                </button>
-
-                {(isWhatsAppEnabled(selectedProductDetail) || isPhoneEnabled(selectedProductDetail)) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: (isWhatsAppEnabled(selectedProductDetail) && isPhoneEnabled(selectedProductDetail)) ? '1fr 1fr' : '1fr', gap: '0.6rem' }}>
-                    {isWhatsAppEnabled(selectedProductDetail) && (
-                      <button
-                        className="btn-whatsapp"
-                        style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                        onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
-                      >
-                        <MessageCircle size={16} />
-                        <span>{t('secondaryWhatsApp')}</span>
-                      </button>
-                    )}
-                    {isPhoneEnabled(selectedProductDetail) && (
-                      <a
-                        href={`tel:${selectedProductDetail.sellerPhone}`}
-                        className="btn-call"
-                        style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                      >
-                        <Phone size={15} />
-                        <span>{t('callProducer')}</span>
-                      </a>
-                    )}
+              {/* Owner Action Panel OR Buyer Contact Options */}
+              {isProductOwner(selectedProductDetail) ? (
+                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#991b1b', fontWeight: '800', fontSize: '0.88rem', marginBottom: '0.65rem' }}>
+                    <ShieldCheck size={17} color="#dc2626" />
+                    <span>{language === 'hi' ? 'यह आपकी अपनी लिस्टिंग है (Your Listing)' : language === 'pa' ? 'ਇਹ ਤੁਹਾਡੀ ਆਪਣੀ ਲਿਸਟਿੰਗ ਹੈ' : 'You are the owner of this listing'}</span>
                   </div>
-                )}
-              </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.6rem' }}>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(language === 'hi' ? 'क्या आप इस उत्पाद लिस्टिंग को हमेशा के लिए हटाना चाहते हैं?' : language === 'pa' ? 'ਕੀ ਤੁਸੀਂ ਇਸ ਉਤਪਾਦ ਨੂੰ ਹਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ?' : 'Are you sure you want to permanently delete this listing?')) {
+                          deleteProduct(selectedProductDetail.id);
+                          setSelectedProductDetail(null);
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        background: '#ef4444',
+                        color: '#ffffff',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        fontWeight: '800',
+                        fontSize: '0.86rem',
+                        cursor: 'pointer',
+                        border: 'none',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      <span>{language === 'hi' ? 'लिस्टिंग हटाएं (Delete)' : language === 'pa' ? 'ਲਿਸਟਿੰਗ ਹਟਾਓ' : 'Delete Listing'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedProductDetail(null);
+                        switchRole('producer');
+                        setActiveTab('listings');
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        background: '#ffffff',
+                        color: 'var(--primary-forest)',
+                        border: '1.5px solid var(--primary-emerald)',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        fontWeight: '800',
+                        fontSize: '0.86rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span>{language === 'hi' ? 'डैशबोर्ड खोलें' : 'Dashboard'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Primary In-App Chat + Secondary WhatsApp & Call Buttons (Honoring Farmer Privacy Toggles) */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
+                  <button
+                    className="btn-chat-primary"
+                    style={{ width: '100%', padding: '0.85rem 1rem', fontSize: '0.95rem', justifyContent: 'center' }}
+                    onClick={() => {
+                      openChatWithProduct(selectedProductDetail);
+                      setSelectedProductDetail(null);
+                    }}
+                  >
+                    <MessageSquare size={19} />
+                    <span>{t('chatWithFarmer')}</span>
+                  </button>
+
+                  {(isWhatsAppEnabled(selectedProductDetail) || isPhoneEnabled(selectedProductDetail)) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: (isWhatsAppEnabled(selectedProductDetail) && isPhoneEnabled(selectedProductDetail)) ? '1fr 1fr' : '1fr', gap: '0.6rem' }}>
+                      {isWhatsAppEnabled(selectedProductDetail) && (
+                        <button
+                          className="btn-whatsapp"
+                          style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                          onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
+                        >
+                          <MessageCircle size={16} />
+                          <span>{t('secondaryWhatsApp')}</span>
+                        </button>
+                      )}
+                      {isPhoneEnabled(selectedProductDetail) && (
+                        <a
+                          href={`tel:${selectedProductDetail.sellerPhone}`}
+                          className="btn-call"
+                          style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                        >
+                          <Phone size={15} />
+                          <span>{t('callProducer')}</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Customer Reviews Section */}
               <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: '1.25rem' }}>
