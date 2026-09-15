@@ -102,12 +102,25 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('marketplace');
 
   const FAKE_PRODUCT_IDS = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-  const isRealProduct = (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id);
+
+  // Deleted Product IDs tracking (to permanently prevent deleted listings from returning)
+  const [deletedProductIds, setDeletedProductIds] = useState(() => {
+    return safeJsonParse('freshfetch_deleted_products', []);
+  });
+
+  const isRealProduct = (p) =>
+    p &&
+    p.id &&
+    !FAKE_PRODUCT_IDS.includes(p.id) &&
+    !(deletedProductIds || []).includes(p.id);
 
   // Products state (Strictly Real farmer listings only - Zero fake/dummy listings)
   const [products, setProducts] = useState(() => {
     const saved = safeJsonParse('freshfetch_products', []);
-    return (Array.isArray(saved) ? saved : []).filter(isRealProduct);
+    const deletedIds = safeJsonParse('freshfetch_deleted_products', []);
+    return (Array.isArray(saved) ? saved : []).filter(
+      (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !deletedIds.includes(p.id)
+    );
   });
 
   // In-App Chat Threads state
@@ -183,6 +196,10 @@ export function AppProvider({ children }) {
   }, [chats]);
 
   useEffect(() => {
+    localStorage.setItem('freshfetch_deleted_products', JSON.stringify(deletedProductIds));
+  }, [deletedProductIds]);
+
+  useEffect(() => {
     if (role) {
       localStorage.setItem('freshfetch_role', role);
     } else {
@@ -222,37 +239,31 @@ export function AppProvider({ children }) {
 
     // 1. Initial One-time Direct Cloud Fetch (Real farmer listings only)
     fetchCloudProductsOnce().then((cloudProds) => {
-      if (cloudProds && cloudProds.length > 0) {
-        setProducts((prev) => {
-          const map = new Map();
-          (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
-          cloudProds.filter(isRealProduct).forEach((p) => map.set(p.id, p));
-          const merged = Array.from(map.values());
-          merged.sort((a, b) => {
-            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
-            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
-            return timeB - timeA;
-          });
-          return merged;
-        });
+      if (cloudProds && Array.isArray(cloudProds)) {
+        const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+        const validCloud = cloudProds.filter(
+          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+        );
+        if (cloudProds.length > 0 || (isFirebaseConfigured && Array.isArray(cloudProds))) {
+          setProducts(validCloud);
+        } else {
+          setProducts((prev) =>
+            (prev || []).filter(
+              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+            )
+          );
+        }
       }
     }).catch(console.warn);
 
-    // 2. Real-time Multi-Tier Cloud Subscription
+    // 2. Real-time Multi-Tier Cloud Subscription (Firestore is active source of truth)
     unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
-      if (cloudProds && Array.isArray(cloudProds) && cloudProds.length > 0) {
-        setProducts((prev) => {
-          const map = new Map();
-          (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
-          cloudProds.filter(isRealProduct).forEach((p) => map.set(p.id, p));
-          const merged = Array.from(map.values());
-          merged.sort((a, b) => {
-            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
-            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
-            return timeB - timeA;
-          });
-          return merged;
-        });
+      if (cloudProds && Array.isArray(cloudProds)) {
+        const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+        const validCloud = cloudProds.filter(
+          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+        );
+        setProducts(validCloud);
       }
     });
 
@@ -263,7 +274,16 @@ export function AppProvider({ children }) {
       if (action === 'ADD_PRODUCT' && isRealProduct(payload)) {
         setProducts((prev) => [payload, ...(prev || []).filter((p) => isRealProduct(p) && p.id !== payload.id)]);
       } else if (action === 'DELETE_PRODUCT' && payload && payload.productId) {
-        setProducts((prev) => (prev || []).filter((p) => p.id !== payload.productId));
+        const delId = payload.productId;
+        setDeletedProductIds((prev) => {
+          const updated = prev.includes(delId) ? prev : [...prev, delId];
+          localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updated));
+          return updated;
+        });
+        setProducts((prev) => (prev || []).filter((p) => p && p.id !== delId));
+        setWishlist((prev) => (prev || []).filter((id) => id !== delId));
+        setSelectedProductDetail((curr) => (curr && curr.id === delId ? null : curr));
+        setShowMakingMediaModal((curr) => (curr && curr.id === delId ? null : curr));
       } else if (action === 'UPDATE_PRODUCT' && payload && payload.productId) {
         setProducts((prev) =>
           (prev || []).map((p) => (p.id === payload.productId ? { ...p, ...payload.updates } : p))
@@ -371,16 +391,27 @@ export function AppProvider({ children }) {
 
     // 5. Cross-Tab Local Storage Synchronization
     const handleStorage = (e) => {
+      if (e.key === 'freshfetch_deleted_products' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setDeletedProductIds(parsed);
+            setProducts((prev) => (prev || []).filter((p) => p && !parsed.includes(p.id)));
+            setWishlist((prev) => (prev || []).filter((id) => !parsed.includes(id)));
+          }
+        } catch (err) {
+          console.warn("Storage sync error for deleted products:", err);
+        }
+      }
       if (e.key === 'freshfetch_products' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
-            setProducts((prev) => {
-              const map = new Map();
-              (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
-              parsed.filter(isRealProduct).forEach((p) => map.set(p.id, p));
-              return Array.from(map.values());
-            });
+            const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+            const valid = parsed.filter(
+              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+            );
+            setProducts(valid);
           }
         } catch (err) {
           console.warn("Storage sync error:", err);
@@ -1039,6 +1070,11 @@ export function AppProvider({ children }) {
       createdDate: new Date().toISOString().split('T')[0]
     };
 
+    setDeletedProductIds((prev) => {
+      const updated = prev.filter((id) => id !== productObj.id);
+      localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updated));
+      return updated;
+    });
     setProducts((prev) => [productObj, ...(prev || []).filter((p) => p && p.id !== productObj.id)]);
 
     // Save to Multi-Tier Cloud (Firestore + 24/7 Cloud Registry + BroadcastChannel)
@@ -1137,7 +1173,24 @@ export function AppProvider({ children }) {
   };
 
   const deleteProduct = (productId) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    if (!productId) return;
+    setDeletedProductIds((prev) => {
+      const updated = prev.includes(productId) ? prev : [...prev, productId];
+      localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updated));
+      return updated;
+    });
+    setProducts((prev) => {
+      const updated = (prev || []).filter((p) => p && p.id !== productId);
+      localStorage.setItem('freshfetch_products', JSON.stringify(updated));
+      return updated;
+    });
+    setWishlist((prev) => {
+      const updated = (prev || []).filter((id) => id !== productId);
+      localStorage.setItem('freshfetch_wishlist', JSON.stringify(updated));
+      return updated;
+    });
+    setSelectedProductDetail((curr) => (curr && curr.id === productId ? null : curr));
+    setShowMakingMediaModal((curr) => (curr && curr.id === productId ? null : curr));
     deleteProductFromCloud(productId);
   };
 
