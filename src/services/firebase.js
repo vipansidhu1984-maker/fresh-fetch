@@ -274,6 +274,43 @@ export function subscribeToCloudProducts(onUpdate, onError) {
   }
 }
 
+/**
+ * Real-time subscription to live deleted_products collection in Cloud Firestore
+ */
+export function subscribeToCloudDeletedProducts(onUpdate, onError) {
+  if (!isFirebaseConfigured || !db) return () => {};
+
+  try {
+    const colRef = collection(db, 'deleted_products');
+    return onSnapshot(colRef, (snapshot) => {
+      const deletedIds = snapshot.docs.map((doc) => String(doc.id));
+      onUpdate(deletedIds);
+    }, (err) => {
+      console.warn("Firestore live deleted products sync notice:", err?.message || err);
+      if (onError) onError(err);
+    });
+  } catch (err) {
+    console.warn("Failed to subscribe to cloud deleted products:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Direct one-time fetch of all Deleted Product IDs from Firestore
+ */
+export async function fetchCloudDeletedProductsOnce() {
+  if (!isFirebaseConfigured || !db) return [];
+
+  try {
+    const colRef = collection(db, 'deleted_products');
+    const snapshot = await getDocs(colRef);
+    return snapshot.docs.map((doc) => String(doc.id));
+  } catch (err) {
+    console.warn("Firestore deleted products fetch warning:", err?.message || err);
+    return [];
+  }
+}
+
 // Helper to sanitize objects and remove any undefined fields before sending to Firestore
 function sanitizeForFirestore(obj) {
   if (obj === undefined) return null;
@@ -297,6 +334,17 @@ function sanitizeForFirestore(obj) {
 export async function saveProductToCloud(product) {
   if (!product || !product.id) return { success: false, offline: true };
 
+  const strId = String(product.id);
+
+  // If this product was previously deleted, remove tombstone
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, 'deleted_products', strId));
+    } catch (e) {
+      // Ignore
+    }
+  }
+
   // 1. Broadcast immediately to all open local tabs/windows
   broadcastSync('ADD_PRODUCT', product);
 
@@ -304,13 +352,15 @@ export async function saveProductToCloud(product) {
   if (isFirebaseConfigured && db) {
     try {
       const sanitized = sanitizeForFirestore(product);
-      const docRef = doc(db, 'products', product.id);
+      const docRef = doc(db, 'products', strId);
       await setDoc(docRef, {
         ...sanitized,
+        isDeleted: false,
+        status: 'active',
         updatedAt: serverTimestamp(),
         createdAt: sanitized.createdAt || serverTimestamp()
       }, { merge: true });
-      console.log(`✅ Product ${product.id} synced to Cloud Firestore.`);
+      console.log(`✅ Product ${strId} synced to Cloud Firestore.`);
       return { success: true };
     } catch (err) {
       console.warn("Firestore save product error:", err?.message || err);
@@ -327,13 +377,38 @@ export async function saveProductToCloud(product) {
 export async function deleteProductFromCloud(productId) {
   if (!productId) return { success: false, offline: true };
 
-  // 1. Broadcast to all open tabs
-  broadcastSync('DELETE_PRODUCT', { productId });
+  const strId = String(productId);
 
-  // 2. Remove from Firestore
+  // 1. Broadcast to all open tabs immediately
+  broadcastSync('DELETE_PRODUCT', { productId: strId });
+
+  // 2. Remove from Firestore and write persistent tombstone
   if (isFirebaseConfigured && db) {
     try {
-      await deleteDoc(doc(db, 'products', productId));
+      // Write tombstone to deleted_products collection so all clients in the cloud know it is deleted
+      try {
+        await setDoc(doc(db, 'deleted_products', strId), {
+          id: strId,
+          deletedAt: serverTimestamp()
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Tombstone write notice:", e?.message || e);
+      }
+
+      // Mark product document as deleted
+      try {
+        await updateDoc(doc(db, 'products', strId), {
+          isDeleted: true,
+          status: 'deleted',
+          deletedAt: serverTimestamp()
+        });
+      } catch (e) {
+        // Document might already not exist
+      }
+
+      // Delete the product document from Firestore
+      await deleteDoc(doc(db, 'products', strId));
+      console.log(`✅ Product ${strId} permanently deleted from Firestore.`);
       return { success: true };
     } catch (err) {
       console.warn("Firestore delete product error:", err?.message || err);

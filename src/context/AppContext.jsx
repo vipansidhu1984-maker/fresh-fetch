@@ -14,6 +14,8 @@ import {
   isFirebaseConfigured,
   subscribeToCloudProducts,
   fetchCloudProductsOnce,
+  subscribeToCloudDeletedProducts,
+  fetchCloudDeletedProductsOnce,
   saveProductToCloud,
   deleteProductFromCloud,
   updateProductInCloud,
@@ -108,18 +110,28 @@ export function AppProvider({ children }) {
     return safeJsonParse('freshfetch_deleted_products', []);
   });
 
-  const isRealProduct = (p) =>
-    p &&
-    p.id &&
-    !FAKE_PRODUCT_IDS.includes(p.id) &&
-    !(deletedProductIds || []).includes(p.id);
+  const isRealProduct = (p) => {
+    if (!p || !p.id) return false;
+    const strId = String(p.id);
+    if (FAKE_PRODUCT_IDS.includes(strId)) return false;
+    if (p.isDeleted === true || p.status === 'deleted') return false;
+    if ((deletedProductIds || []).map(String).includes(strId)) return false;
+    try {
+      const localDel = safeJsonParse('freshfetch_deleted_products', []);
+      if (Array.isArray(localDel) && localDel.map(String).includes(strId)) return false;
+    } catch {
+      // Ignore
+    }
+    return true;
+  };
 
   // Products state (Strictly Real farmer listings only - Zero fake/dummy listings)
   const [products, setProducts] = useState(() => {
     const saved = safeJsonParse('freshfetch_products', []);
     const deletedIds = safeJsonParse('freshfetch_deleted_products', []);
+    const strDeleted = (deletedIds || []).map(String);
     return (Array.isArray(saved) ? saved : []).filter(
-      (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !deletedIds.includes(p.id)
+      (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(String(p.id)) && !strDeleted.includes(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
     );
   });
 
@@ -235,58 +247,85 @@ export function AppProvider({ children }) {
   // Real-time Multi-Channel Synchronization (Cloud Firestore + BroadcastChannel + Local Storage)
   useEffect(() => {
     let unsubscribeProducts = () => {};
+    let unsubscribeDeleted = () => {};
     let unsubscribeChats = () => {};
 
-    // 1. Initial One-time Direct Cloud Fetch (Real farmer listings only)
+    // 1. Initial One-time Direct Cloud Fetch
+    fetchCloudDeletedProductsOnce().then((cloudDeletedIds) => {
+      if (cloudDeletedIds && Array.isArray(cloudDeletedIds) && cloudDeletedIds.length > 0) {
+        setDeletedProductIds((prev) => {
+          const merged = Array.from(new Set([...(prev || []).map(String), ...cloudDeletedIds.map(String)]));
+          localStorage.setItem('freshfetch_deleted_products', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }).catch(console.warn);
+
     fetchCloudProductsOnce().then((cloudProds) => {
       if (cloudProds && Array.isArray(cloudProds)) {
         const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+        const strDeleted = (localDeleted || []).map(String);
         const validCloud = cloudProds.filter(
-          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(String(p.id)) && !strDeleted.includes(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
         );
         if (cloudProds.length > 0 || (isFirebaseConfigured && Array.isArray(cloudProds))) {
           setProducts(validCloud);
         } else {
           setProducts((prev) =>
             (prev || []).filter(
-              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(String(p.id)) && !strDeleted.includes(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
             )
           );
         }
       }
     }).catch(console.warn);
 
-    // 2. Real-time Multi-Tier Cloud Subscription (Firestore is active source of truth)
+    // 2. Real-time Multi-Tier Cloud Subscription for Products
     unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
       if (cloudProds && Array.isArray(cloudProds)) {
         const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+        const strDeleted = (localDeleted || []).map(String);
         const validCloud = cloudProds.filter(
-          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+          (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(String(p.id)) && !strDeleted.includes(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
         );
         setProducts(validCloud);
       }
     });
 
-    // 3. Instant Local & Cross-Tab Broadcast Channel Listener
+    // 3. Real-time Multi-Tier Cloud Subscription for Deleted Products
+    unsubscribeDeleted = subscribeToCloudDeletedProducts((cloudDeletedIds) => {
+      if (cloudDeletedIds && Array.isArray(cloudDeletedIds) && cloudDeletedIds.length > 0) {
+        const strDeleted = cloudDeletedIds.map(String);
+        setDeletedProductIds((prev) => {
+          const merged = Array.from(new Set([...(prev || []).map(String), ...strDeleted]));
+          localStorage.setItem('freshfetch_deleted_products', JSON.stringify(merged));
+          return merged;
+        });
+        setProducts((prev) => (prev || []).filter((p) => p && !strDeleted.includes(String(p.id))));
+        setWishlist((prev) => (prev || []).filter((id) => !strDeleted.includes(String(id))));
+      }
+    });
+
+    // 4. Instant Local & Cross-Tab Broadcast Channel Listener
     const handleSyncMessage = (event) => {
       if (!event || !event.data) return;
       const { action, payload } = event.data;
       if (action === 'ADD_PRODUCT' && isRealProduct(payload)) {
-        setProducts((prev) => [payload, ...(prev || []).filter((p) => isRealProduct(p) && p.id !== payload.id)]);
+        setProducts((prev) => [payload, ...(prev || []).filter((p) => isRealProduct(p) && String(p.id) !== String(payload.id))]);
       } else if (action === 'DELETE_PRODUCT' && payload && payload.productId) {
-        const delId = payload.productId;
-        setDeletedProductIds((prev) => {
-          const updated = prev.includes(delId) ? prev : [...prev, delId];
-          localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updated));
-          return updated;
-        });
-        setProducts((prev) => (prev || []).filter((p) => p && p.id !== delId));
-        setWishlist((prev) => (prev || []).filter((id) => id !== delId));
-        setSelectedProductDetail((curr) => (curr && curr.id === delId ? null : curr));
-        setShowMakingMediaModal((curr) => (curr && curr.id === delId ? null : curr));
+        const delId = String(payload.productId);
+        const existingDeleted = safeJsonParse('freshfetch_deleted_products', []);
+        const updatedDeleted = Array.from(new Set([...(existingDeleted || []).map(String), delId]));
+        localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updatedDeleted));
+
+        setDeletedProductIds(updatedDeleted);
+        setProducts((prev) => (prev || []).filter((p) => p && String(p.id) !== delId));
+        setWishlist((prev) => (prev || []).filter((id) => String(id) !== delId));
+        setSelectedProductDetail((curr) => (curr && String(curr.id) === delId ? null : curr));
+        setShowMakingMediaModal((curr) => (curr && String(curr.id) === delId ? null : curr));
       } else if (action === 'UPDATE_PRODUCT' && payload && payload.productId) {
         setProducts((prev) =>
-          (prev || []).map((p) => (p.id === payload.productId ? { ...p, ...payload.updates } : p))
+          (prev || []).map((p) => (String(p.id) === String(payload.productId) ? { ...p, ...payload.updates } : p))
         );
       } else if (action === 'CREATE_CHAT' && payload && payload.id) {
         setChats((prev) => {
@@ -366,7 +405,7 @@ export function AppProvider({ children }) {
       syncBus.addEventListener('message', handleSyncMessage);
     }
 
-    // 4. Live User Chats Subscription
+    // 5. Live User Chats Subscription
     if (isFirebaseConfigured && (currentUser?.id || currentUser?.phone)) {
       unsubscribeChats = subscribeToUserChats(currentUser, role || 'buyer', (cloudChats) => {
         if (cloudChats && Array.isArray(cloudChats)) {
@@ -389,15 +428,16 @@ export function AppProvider({ children }) {
       });
     }
 
-    // 5. Cross-Tab Local Storage Synchronization
+    // 6. Cross-Tab Local Storage Synchronization
     const handleStorage = (e) => {
       if (e.key === 'freshfetch_deleted_products' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
-            setDeletedProductIds(parsed);
-            setProducts((prev) => (prev || []).filter((p) => p && !parsed.includes(p.id)));
-            setWishlist((prev) => (prev || []).filter((id) => !parsed.includes(id)));
+            const strParsed = parsed.map(String);
+            setDeletedProductIds(strParsed);
+            setProducts((prev) => (prev || []).filter((p) => p && !strParsed.includes(String(p.id))));
+            setWishlist((prev) => (prev || []).filter((id) => !strParsed.includes(String(id))));
           }
         } catch (err) {
           console.warn("Storage sync error for deleted products:", err);
@@ -408,8 +448,9 @@ export function AppProvider({ children }) {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
             const localDeleted = safeJsonParse('freshfetch_deleted_products', []);
+            const strDeleted = (localDeleted || []).map(String);
             const valid = parsed.filter(
-              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id) && !localDeleted.includes(p.id)
+              (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(String(p.id)) && !strDeleted.includes(String(p.id)) && !p.isDeleted && p.status !== 'deleted'
             );
             setProducts(valid);
           }
@@ -432,6 +473,7 @@ export function AppProvider({ children }) {
 
     return () => {
       unsubscribeProducts();
+      unsubscribeDeleted();
       unsubscribeChats();
       if (syncBus) {
         syncBus.removeEventListener('message', handleSyncMessage);
@@ -1174,24 +1216,30 @@ export function AppProvider({ children }) {
 
   const deleteProduct = (productId) => {
     if (!productId) return;
-    setDeletedProductIds((prev) => {
-      const updated = prev.includes(productId) ? prev : [...prev, productId];
-      localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updated));
-      return updated;
-    });
-    setProducts((prev) => {
-      const updated = (prev || []).filter((p) => p && p.id !== productId);
-      localStorage.setItem('freshfetch_products', JSON.stringify(updated));
-      return updated;
-    });
-    setWishlist((prev) => {
-      const updated = (prev || []).filter((id) => id !== productId);
-      localStorage.setItem('freshfetch_wishlist', JSON.stringify(updated));
-      return updated;
-    });
-    setSelectedProductDetail((curr) => (curr && curr.id === productId ? null : curr));
-    setShowMakingMediaModal((curr) => (curr && curr.id === productId ? null : curr));
-    deleteProductFromCloud(productId);
+    const strId = String(productId);
+
+    // 1. Immediately update localStorage synchronously
+    const existingDeleted = safeJsonParse('freshfetch_deleted_products', []);
+    const updatedDeleted = Array.from(new Set([...(existingDeleted || []).map(String), strId]));
+    localStorage.setItem('freshfetch_deleted_products', JSON.stringify(updatedDeleted));
+
+    const existingProducts = safeJsonParse('freshfetch_products', []);
+    const updatedProducts = (existingProducts || []).filter((p) => p && String(p.id) !== strId);
+    localStorage.setItem('freshfetch_products', JSON.stringify(updatedProducts));
+
+    const existingWishlist = safeJsonParse('freshfetch_wishlist', []);
+    const updatedWishlist = (existingWishlist || []).filter((id) => String(id) !== strId);
+    localStorage.setItem('freshfetch_wishlist', JSON.stringify(updatedWishlist));
+
+    // 2. Update React State
+    setDeletedProductIds(updatedDeleted);
+    setProducts((prev) => (prev || []).filter((p) => p && String(p.id) !== strId));
+    setWishlist((prev) => (prev || []).filter((id) => String(id) !== strId));
+    setSelectedProductDetail((curr) => (curr && String(curr.id) === strId ? null : curr));
+    setShowMakingMediaModal((curr) => (curr && String(curr.id) === strId ? null : curr));
+
+    // 3. Delete from Multi-Tier Cloud (Firestore + BroadcastChannel)
+    deleteProductFromCloud(strId);
   };
 
   // Track WhatsApp click

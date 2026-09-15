@@ -89,14 +89,28 @@ export function BuyerMarketplace() {
   // Filter products by region, category, search, freshness, and WISHLIST (Strictly Real farmer listings only)
   const filteredProducts = (products || []).filter((prod) => {
     if (!prod || !prod.id) return false;
+    const strId = String(prod.id);
 
     // Strictly exclude any fake / mock items
-    if (['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(prod.id)) {
+    if (['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(strId)) {
       return false;
     }
 
+    if (prod.isDeleted === true || prod.status === 'deleted') {
+      return false;
+    }
+
+    try {
+      const localDeleted = JSON.parse(localStorage.getItem('freshfetch_deleted_products') || '[]');
+      if (Array.isArray(localDeleted) && localDeleted.map(String).includes(strId)) {
+        return false;
+      }
+    } catch {
+      // Ignore
+    }
+
     // 1. If in Saved / Wishlist tab, must be in user's saved wishlist
-    if (isWishlistView && !(wishlist || []).includes(prod.id)) {
+    if (isWishlistView && !(wishlist || []).map(String).includes(strId)) {
       return false;
     }
 

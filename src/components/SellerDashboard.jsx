@@ -50,7 +50,18 @@ export function SellerDashboard() {
 
   // Filter products by current seller (Real farmer listings only)
   const myProducts = products.filter((p) => {
-    if (!p || ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id)) return false;
+    if (!p || !p.id) return false;
+    const strId = String(p.id);
+    if (['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(strId)) return false;
+    if (p.isDeleted === true || p.status === 'deleted') return false;
+
+    try {
+      const localDeleted = JSON.parse(localStorage.getItem('freshfetch_deleted_products') || '[]');
+      if (Array.isArray(localDeleted) && localDeleted.map(String).includes(strId)) return false;
+    } catch {
+      // Ignore
+    }
+
     if (!currentUser) return false;
     if (p.sellerId && p.sellerId === currentUser.id) return true;
     if (currentSellerPhone10) {

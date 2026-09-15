@@ -41,7 +41,19 @@ export function UserProfile() {
   } = useApp();
 
   const myProducts = products.filter(
-    (p) => p && !['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id) && (currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : false)
+    (p) => {
+      if (!p || !p.id) return false;
+      const strId = String(p.id);
+      if (['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(strId)) return false;
+      if (p.isDeleted === true || p.status === 'deleted') return false;
+      try {
+        const localDeleted = JSON.parse(localStorage.getItem('freshfetch_deleted_products') || '[]');
+        if (Array.isArray(localDeleted) && localDeleted.map(String).includes(strId)) return false;
+      } catch {
+        // Ignore
+      }
+      return currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : false;
+    }
   );
 
   const myInquiries = (inquiries || []).filter(
