@@ -13,9 +13,11 @@ import confetti from 'canvas-confetti';
 import {
   isFirebaseConfigured,
   subscribeToCloudProducts,
+  fetchCloudProductsOnce,
   saveProductToCloud,
   deleteProductFromCloud,
   updateProductInCloud,
+  syncBus,
   saveUserToCloud,
   fetchUserFromCloud,
   subscribeToUserChats,
@@ -99,13 +101,10 @@ export function AppProvider({ children }) {
   // Active Bottom Nav Tab
   const [activeTab, setActiveTab] = useState('marketplace');
 
-  // Products state (Real farmer listings only - no fake dummy products)
+  // Products state (Initialized with saved products or verified initial farm products)
   const [products, setProducts] = useState(() => {
-    const saved = safeJsonParse('freshfetch_products', []);
-    const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-    return (Array.isArray(saved) ? saved : []).filter(
-      (p) => p && p.id && !fakeIds.includes(p.id)
-    );
+    const saved = safeJsonParse('freshfetch_products', INITIAL_PRODUCTS);
+    return Array.isArray(saved) && saved.length > 0 ? saved : INITIAL_PRODUCTS;
   });
 
   // In-App Chat Threads state
@@ -212,64 +211,87 @@ export function AppProvider({ children }) {
     localStorage.setItem('freshfetch_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // Real-time Cloud Synchronization (Google Cloud Firestore 24/7 & Cross-Tab)
+  // Real-time Multi-Channel Synchronization (Cloud Firestore + 24/7 Cloud Registry + BroadcastChannel + Local Storage)
   useEffect(() => {
     let unsubscribeProducts = () => {};
     let unsubscribeChats = () => {};
 
-    if (isFirebaseConfigured) {
-      // 1. Subscribe to Live Cloud Products (Real farmer listings only)
-      unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
-        if (cloudProds && Array.isArray(cloudProds)) {
-          const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-          const realCloudProds = cloudProds.filter(
-            (p) => p && p.id && !fakeIds.includes(p.id)
-          );
-
-          setProducts((prev) => {
-            const cloudMap = new Map();
-            realCloudProds.forEach((p) => cloudMap.set(p.id, p));
-
-            // Merge cloud products with any locally added products so newly listed items are always broadcasted!
-            const merged = [...realCloudProds];
-            (prev || []).forEach((localProd) => {
-              if (localProd && localProd.id && !fakeIds.includes(localProd.id) && !cloudMap.has(localProd.id)) {
-                merged.push(localProd);
-                // Ensure locally created product is uploaded to Cloud Firestore for other users to see
-                saveProductToCloud(localProd);
-              }
-            });
-            return merged;
+    // 1. Initial One-time Direct Cloud Fetch
+    fetchCloudProductsOnce().then((cloudProds) => {
+      if (cloudProds && cloudProds.length > 0) {
+        setProducts((prev) => {
+          const map = new Map();
+          (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
+          cloudProds.forEach((p) => p && p.id && map.set(p.id, p));
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => {
+            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+            return timeB - timeA;
           });
-        }
-      });
-
-      // 2. Subscribe to Live User Chats
-      if (currentUser?.id || currentUser?.phone) {
-        const uId = currentUser.id || currentUser.phone;
-        unsubscribeChats = subscribeToUserChats(uId, role || 'buyer', (cloudChats) => {
-          if (cloudChats && cloudChats.length > 0) {
-            setChats(cloudChats);
-          }
+          return merged;
         });
       }
+    }).catch(console.warn);
+
+    // 2. Real-time Multi-Tier Cloud Subscription (Firestore + Cloud Registry Polling)
+    unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
+      if (cloudProds && Array.isArray(cloudProds) && cloudProds.length > 0) {
+        setProducts((prev) => {
+          const map = new Map();
+          (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
+          cloudProds.forEach((p) => p && p.id && map.set(p.id, p));
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => {
+            const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+            const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+            return timeB - timeA;
+          });
+          return merged;
+        });
+      }
+    });
+
+    // 3. Instant Local & Cross-Tab Broadcast Channel Listener
+    const handleSyncMessage = (event) => {
+      if (!event || !event.data) return;
+      const { action, payload } = event.data;
+      if (action === 'ADD_PRODUCT' && payload && payload.id) {
+        setProducts((prev) => [payload, ...(prev || []).filter((p) => p.id !== payload.id)]);
+      } else if (action === 'DELETE_PRODUCT' && payload && payload.productId) {
+        setProducts((prev) => (prev || []).filter((p) => p.id !== payload.productId));
+      } else if (action === 'UPDATE_PRODUCT' && payload && payload.productId) {
+        setProducts((prev) =>
+          (prev || []).map((p) => (p.id === payload.productId ? { ...p, ...payload.updates } : p))
+        );
+      }
+    };
+
+    if (syncBus) {
+      syncBus.addEventListener('message', handleSyncMessage);
     }
 
-    // 3. Cross-Tab Local Storage Synchronization (so other tabs/users immediately receive new listings)
+    // 4. Live User Chats Subscription
+    if (isFirebaseConfigured && (currentUser?.id || currentUser?.phone)) {
+      const uId = currentUser.id || currentUser.phone;
+      unsubscribeChats = subscribeToUserChats(uId, role || 'buyer', (cloudChats) => {
+        if (cloudChats && cloudChats.length > 0) {
+          setChats(cloudChats);
+        }
+      });
+    }
+
+    // 5. Cross-Tab Local Storage Synchronization
     const handleStorage = (e) => {
       if (e.key === 'freshfetch_products' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
-            const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-            const valid = parsed.filter((p) => p && p.id && !fakeIds.includes(p.id));
             setProducts((prev) => {
-              const prevIds = new Set((prev || []).map((p) => p.id));
-              const hasNew = valid.some((p) => !prevIds.has(p.id));
-              if (hasNew || valid.length !== (prev || []).length) {
-                return valid;
-              }
-              return prev;
+              const map = new Map();
+              (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
+              parsed.forEach((p) => p && p.id && map.set(p.id, p));
+              return Array.from(map.values());
             });
           }
         } catch (err) {
@@ -282,6 +304,9 @@ export function AppProvider({ children }) {
     return () => {
       unsubscribeProducts();
       unsubscribeChats();
+      if (syncBus) {
+        syncBus.removeEventListener('message', handleSyncMessage);
+      }
       window.removeEventListener('storage', handleStorage);
     };
   }, [currentUser?.id, currentUser?.phone, role]);
@@ -885,9 +910,9 @@ export function AppProvider({ children }) {
       createdDate: new Date().toISOString().split('T')[0]
     };
 
-    setProducts((prev) => [productObj, ...(prev || [])]);
+    setProducts((prev) => [productObj, ...(prev || []).filter((p) => p && p.id !== productObj.id)]);
 
-    // Save to Cloud Firestore
+    // Save to Multi-Tier Cloud (Firestore + 24/7 Cloud Registry + BroadcastChannel)
     saveProductToCloud(productObj);
   };
 
