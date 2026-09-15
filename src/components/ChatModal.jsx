@@ -23,6 +23,7 @@ export function ChatModal() {
     sendMessage,
     role,
     currentUser,
+    registeredUsers,
     trackWhatsAppInquiry,
     language,
     t
@@ -42,6 +43,23 @@ export function ChatModal() {
   }, [showChatModal, activeChat?.messages]);
 
   if (!showChatModal || !activeChat) return null;
+
+  // Resolve dynamic seller privacy settings
+  const sellerUser = (registeredUsers || []).find(
+    (u) =>
+      (u.id && u.id === activeChat.sellerId) ||
+      (u.phone && (u.phone === activeChat.sellerPhone || `91${u.phone}` === activeChat.sellerWhatsApp))
+  );
+
+  const isWhatsAppActive =
+    activeChat.showWhatsApp !== false &&
+    (!sellerUser || sellerUser.showWhatsApp !== false) &&
+    Boolean(activeChat.sellerWhatsApp || activeChat.sellerPhone);
+
+  const isPhoneActive =
+    activeChat.showPhone !== false &&
+    (!sellerUser || sellerUser.showPhone !== false) &&
+    Boolean(activeChat.sellerPhone);
 
   const handleSend = (e) => {
     e?.preventDefault();
@@ -102,20 +120,22 @@ export function ChatModal() {
 
           {/* Quick Actions in Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-            {/* Secondary WhatsApp Button */}
-            <a
-              href={`https://wa.me/${activeChat.sellerWhatsApp}?text=${encodeURIComponent(`Namaste ${activeChat.sellerName}! Inquiry for ${activeChat.productTitle} on Fresh Fetch.`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="chat-header-action-btn wa"
-              title={t('secondaryWhatsApp')}
-            >
-              <MessageCircle size={16} />
-              <span className="action-btn-label">WhatsApp</span>
-            </a>
+            {/* Secondary WhatsApp Button - Only if farmer enabled WhatsApp */}
+            {isWhatsAppActive && (
+              <a
+                href={`https://wa.me/${activeChat.sellerWhatsApp || `91${activeChat.sellerPhone}`}?text=${encodeURIComponent(`Namaste ${activeChat.sellerName}! Inquiry for ${activeChat.productTitle} on Fresh Fetch.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="chat-header-action-btn wa"
+                title={t('secondaryWhatsApp')}
+              >
+                <MessageCircle size={16} />
+                <span className="action-btn-label">WhatsApp</span>
+              </a>
+            )}
 
-            {/* Phone Call Button */}
-            {activeChat.sellerPhone && (
+            {/* Phone Call Button - Only if farmer enabled Phone */}
+            {isPhoneActive && (
               <a
                 href={`tel:${activeChat.sellerPhone}`}
                 className="chat-header-action-btn call"

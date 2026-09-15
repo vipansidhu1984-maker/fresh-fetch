@@ -48,11 +48,38 @@ export function BuyerMarketplace() {
     setActiveTab,
     role,
     setShowAddProductModal,
+    registeredUsers,
     t, 
     language 
   } = useApp();
 
   const isWishlistView = activeTab === 'wishlist';
+
+  // Helper to check if WhatsApp is enabled by the farmer for a product
+  const isWhatsAppEnabled = (prod) => {
+    if (!prod) return false;
+    if (prod.showWhatsApp === false) return false;
+    const sellerUser = (registeredUsers || []).find(
+      (u) =>
+        (u.id && u.id === prod.sellerId) ||
+        (u.phone && (u.phone === prod.sellerPhone || `91${u.phone}` === prod.sellerWhatsApp))
+    );
+    if (sellerUser && sellerUser.showWhatsApp === false) return false;
+    return Boolean(prod.sellerWhatsApp || prod.sellerPhone);
+  };
+
+  // Helper to check if direct phone contact is enabled by the farmer for a product
+  const isPhoneEnabled = (prod) => {
+    if (!prod) return false;
+    if (prod.showPhone === false || !prod.sellerPhone) return false;
+    const sellerUser = (registeredUsers || []).find(
+      (u) =>
+        (u.id && u.id === prod.sellerId) ||
+        (u.phone && u.phone === prod.sellerPhone)
+    );
+    if (sellerUser && sellerUser.showPhone === false) return false;
+    return true;
+  };
 
   // Review Form State inside modal
   const [reviewRating, setReviewRating] = useState(5);
@@ -418,7 +445,7 @@ export function BuyerMarketplace() {
                     </div>
                   </div>
 
-                  {/* Actions: Primary In-App Chat + Secondary WhatsApp & Call (Honoring Seller Privacy) */}
+                  {/* Actions: Primary In-App Chat + Secondary WhatsApp & Call (Honoring Farmer Privacy Toggles) */}
                   <div className="product-card-actions">
                     <button
                       className="btn-chat-primary"
@@ -429,27 +456,29 @@ export function BuyerMarketplace() {
                       <span>{t('chatWithFarmer')}</span>
                     </button>
 
-                    <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
-                      {product.showWhatsApp !== false && (
-                        <button
-                          className="btn-whatsapp-compact"
-                          onClick={() => trackWhatsAppInquiry(product)}
-                          title={t('secondaryWhatsApp')}
-                        >
-                          <MessageCircle size={17} />
-                        </button>
-                      )}
+                    {(isWhatsAppEnabled(product) || isPhoneEnabled(product)) && (
+                      <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                        {isWhatsAppEnabled(product) && (
+                          <button
+                            className="btn-whatsapp-compact"
+                            onClick={() => trackWhatsAppInquiry(product)}
+                            title={t('secondaryWhatsApp')}
+                          >
+                            <MessageCircle size={17} />
+                          </button>
+                        )}
 
-                      {product.showPhone !== false && product.sellerPhone && (
-                        <a
-                          href={`tel:${product.sellerPhone}`}
-                          className="btn-call-compact"
-                          title={t('callProducerAction')}
-                        >
-                          <Phone size={15} />
-                        </a>
-                      )}
-                    </div>
+                        {isPhoneEnabled(product) && (
+                          <a
+                            href={`tel:${product.sellerPhone}`}
+                            className="btn-call-compact"
+                            title={t('callProducerAction')}
+                          >
+                            <Phone size={15} />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Auxiliary Links: Details & Optional Drive Video */}
@@ -588,7 +617,7 @@ export function BuyerMarketplace() {
                 </div>
               </div>
 
-              {/* Primary In-App Chat + Secondary WhatsApp & Call Buttons (Honoring Privacy Toggles) */}
+              {/* Primary In-App Chat + Secondary WhatsApp & Call Buttons (Honoring Farmer Privacy Toggles) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
                 <button
                   className="btn-chat-primary"
@@ -602,28 +631,30 @@ export function BuyerMarketplace() {
                   <span>{t('chatWithFarmer')}</span>
                 </button>
 
-                <div style={{ display: 'grid', gridTemplateColumns: (selectedProductDetail.showWhatsApp !== false && selectedProductDetail.showPhone !== false && selectedProductDetail.sellerPhone) ? '1fr 1fr' : '1fr', gap: '0.6rem' }}>
-                  {selectedProductDetail.showWhatsApp !== false && (
-                    <button
-                      className="btn-whatsapp"
-                      style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                      onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
-                    >
-                      <MessageCircle size={16} />
-                      <span>{t('secondaryWhatsApp')}</span>
-                    </button>
-                  )}
-                  {selectedProductDetail.showPhone !== false && selectedProductDetail.sellerPhone && (
-                    <a
-                      href={`tel:${selectedProductDetail.sellerPhone}`}
-                      className="btn-call"
-                      style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                    >
-                      <Phone size={15} />
-                      <span>{t('callProducer')}</span>
-                    </a>
-                  )}
-                </div>
+                {(isWhatsAppEnabled(selectedProductDetail) || isPhoneEnabled(selectedProductDetail)) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: (isWhatsAppEnabled(selectedProductDetail) && isPhoneEnabled(selectedProductDetail)) ? '1fr 1fr' : '1fr', gap: '0.6rem' }}>
+                    {isWhatsAppEnabled(selectedProductDetail) && (
+                      <button
+                        className="btn-whatsapp"
+                        style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                        onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
+                      >
+                        <MessageCircle size={16} />
+                        <span>{t('secondaryWhatsApp')}</span>
+                      </button>
+                    )}
+                    {isPhoneEnabled(selectedProductDetail) && (
+                      <a
+                        href={`tel:${selectedProductDetail.sellerPhone}`}
+                        className="btn-call"
+                        style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                      >
+                        <Phone size={15} />
+                        <span>{t('callProducer')}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Customer Reviews Section */}
@@ -816,17 +847,31 @@ export function BuyerMarketplace() {
                 </div>
               )}
 
-              <button
-                className="btn-whatsapp"
-                style={{ marginTop: '1.25rem', width: '100%' }}
-                onClick={() => {
-                  trackWhatsAppInquiry(showMakingMediaModal);
-                  setShowMakingMediaModal(null);
-                }}
-              >
-                <MessageCircle size={18} />
-                <span>{t('contactViaWhatsApp')}</span>
-              </button>
+              {isWhatsAppEnabled(showMakingMediaModal) ? (
+                <button
+                  className="btn-whatsapp"
+                  style={{ marginTop: '1.25rem', width: '100%' }}
+                  onClick={() => {
+                    trackWhatsAppInquiry(showMakingMediaModal);
+                    setShowMakingMediaModal(null);
+                  }}
+                >
+                  <MessageCircle size={18} />
+                  <span>{t('contactViaWhatsApp')}</span>
+                </button>
+              ) : (
+                <button
+                  className="btn-chat-primary"
+                  style={{ marginTop: '1.25rem', width: '100%', padding: '0.75rem 1rem' }}
+                  onClick={() => {
+                    openChatWithProduct(showMakingMediaModal);
+                    setShowMakingMediaModal(null);
+                  }}
+                >
+                  <MessageSquare size={18} />
+                  <span>{t('chatWithFarmer')}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -270,20 +270,34 @@ export function AppProvider({ children }) {
     // Sync to Cloud Firestore
     saveUserToCloud(updated);
 
-    // If user is a farmer and changed name/location, sync to products
+    // If user is a farmer, sync updated details and privacy toggles to all their products
     if (updated.role === 'producer') {
       setProducts((prev) =>
-        prev.map((p) =>
-          p.sellerId === updated.id
-            ? {
-                ...p,
-                sellerName: updated.name,
-                sellerPhone: updated.phone || p.sellerPhone,
-                sellerLocation: updated.location || p.sellerLocation,
-                farmName: updated.farmName || p.farmName
-              }
-            : p
-        )
+        prev.map((p) => {
+          if (p.sellerId === updated.id || (updated.phone && p.sellerPhone === updated.phone)) {
+            const updatedProd = {
+              ...p,
+              sellerName: updated.name || p.sellerName,
+              sellerPhone: updated.phone || p.sellerPhone,
+              sellerWhatsApp: updated.phone ? `91${updated.phone.replace(/\D/g, '')}` : p.sellerWhatsApp,
+              showWhatsApp: updated.showWhatsApp !== false,
+              showPhone: updated.showPhone !== false,
+              sellerLocation: updated.location || p.sellerLocation,
+              farmName: updated.farmName || p.farmName
+            };
+            updateProductInCloud(p.id, {
+              sellerName: updatedProd.sellerName,
+              sellerPhone: updatedProd.sellerPhone,
+              sellerWhatsApp: updatedProd.sellerWhatsApp,
+              showWhatsApp: updatedProd.showWhatsApp,
+              showPhone: updatedProd.showPhone,
+              sellerLocation: updatedProd.sellerLocation,
+              farmName: updatedProd.farmName
+            });
+            return updatedProd;
+          }
+          return p;
+        })
       );
     }
   };
@@ -541,13 +555,29 @@ export function AppProvider({ children }) {
   const openChatWithProduct = (product) => {
     if (!product) return;
 
+    // Look up latest seller privacy preferences
+    const sellerUser = (registeredUsers || []).find(
+      (u) =>
+        (u.id && u.id === product.sellerId) ||
+        (u.phone && (u.phone === product.sellerPhone || `91${u.phone}` === product.sellerWhatsApp))
+    );
+    const isWhatsAppOn = product.showWhatsApp !== false && (!sellerUser || sellerUser.showWhatsApp !== false);
+    const isPhoneOn = product.showPhone !== false && (!sellerUser || sellerUser.showPhone !== false);
+
     // Check if chat thread already exists for this product
     const existingChat = chats.find(
       (c) => c.productId === product.id && (c.buyerId === currentUser?.id || c.buyerPhone === currentUser?.phone)
     ) || chats.find((c) => c.productId === product.id);
 
     if (existingChat) {
-      setActiveChat(existingChat);
+      const updatedChat = {
+        ...existingChat,
+        showWhatsApp: isWhatsAppOn,
+        showPhone: isPhoneOn,
+        sellerWhatsApp: product.sellerWhatsApp || existingChat.sellerWhatsApp,
+        sellerPhone: product.sellerPhone || existingChat.sellerPhone
+      };
+      setActiveChat(updatedChat);
       setShowChatModal(true);
       return;
     }
@@ -563,7 +593,9 @@ export function AppProvider({ children }) {
       sellerId: product.sellerId,
       sellerName: product.sellerName,
       sellerPhone: product.sellerPhone,
-      sellerWhatsApp: product.sellerWhatsApp || `91${product.sellerPhone}`,
+      sellerWhatsApp: product.sellerWhatsApp || (product.sellerPhone ? `91${product.sellerPhone}` : ''),
+      showWhatsApp: isWhatsAppOn,
+      showPhone: isPhoneOn,
       sellerLocation: product.sellerLocation,
       buyerId: currentUser?.id || 'guest-buyer',
       buyerName: currentUser?.name || 'Buyer',
@@ -817,6 +849,21 @@ export function AppProvider({ children }) {
 
   // Track WhatsApp click
   const trackWhatsAppInquiry = (product) => {
+    if (!product) return;
+
+    const sellerUser = (registeredUsers || []).find(
+      (u) =>
+        (u.id && u.id === product.sellerId) ||
+        (u.phone && (u.phone === product.sellerPhone || `91${u.phone}` === product.sellerWhatsApp))
+    );
+    const isWhatsAppOn = product.showWhatsApp !== false && (!sellerUser || sellerUser.showWhatsApp !== false);
+
+    // If WhatsApp is disabled by farmer, route to in-app chat
+    if (!isWhatsAppOn || (!product.sellerWhatsApp && !product.sellerPhone)) {
+      openChatWithProduct(product);
+      return;
+    }
+
     const newInquiry = {
       id: `inq-${Date.now()}`,
       productId: product.id,
@@ -835,7 +882,8 @@ export function AppProvider({ children }) {
       .replace('{price}', product.price || '')
       .replace('{unit}', product.unit || '');
 
-    const waUrl = `https://wa.me/${product.sellerWhatsApp}?text=${encodeURIComponent(message)}`;
+    const waNum = product.sellerWhatsApp || `91${product.sellerPhone.replace(/\D/g, '')}`;
+    const waUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
