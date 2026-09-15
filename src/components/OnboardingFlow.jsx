@@ -17,7 +17,8 @@ import {
   Sparkles, 
   CheckCircle2, 
   ChevronRight,
-  KeyRound
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 
 export function OnboardingFlow() {
@@ -28,6 +29,7 @@ export function OnboardingFlow() {
     selectLanguageAndNext,
     selectRoleAndNext,
     loginWithPassword,
+    verifyUserIdentityForReset,
     resetPasswordDirect,
     registerNewUser,
     role,
@@ -55,10 +57,15 @@ export function OnboardingFlow() {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
+  // 2-Step Forgot Password States
+  const [forgotStep, setForgotStep] = useState(1);
+  const [verifyFullName, setVerifyFullName] = useState('');
+  const [verifyDob, setVerifyDob] = useState('');
+  const [verifiedAccount, setVerifiedAccount] = useState(null);
   const [newResetPass, setNewResetPass] = useState('');
   const [confirmResetPass, setConfirmResetPass] = useState('');
 
-  // 1. Direct Registration Form Submit (No OTP needed)
+  // 1. Direct Registration Form Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -66,6 +73,10 @@ export function OnboardingFlow() {
 
     if (!formData.fullName.trim()) {
       setAuthError(language === 'hi' ? 'कृपया अपना नाम दर्ज करें' : 'Please enter your full name');
+      return;
+    }
+    if (!formData.dob) {
+      setAuthError(language === 'hi' ? 'कृपया अपनी जन्म तिथि चुनें' : 'Please select your date of birth');
       return;
     }
     if (!formData.phone || formData.phone.length < 10) {
@@ -114,17 +125,45 @@ export function OnboardingFlow() {
     }
   };
 
-  // 3. Direct Password Reset Submit
-  const handleResetPasswordSubmit = async (e) => {
+  // 3. Step 1: Verify Identity (Name + DOB) before password reset
+  const handleVerifyIdentitySubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
     setAuthSuccess('');
 
     if (!loginPhone || loginPhone.length < 10) {
-      setAuthError(language === 'hi' ? 'कृपया अपना 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
+      setAuthError(language === 'hi' ? 'कृपया 10 अंकों का पंजीकृत मोबाइल नंबर दर्ज करें' : 'Please enter your registered 10-digit mobile number');
       return;
     }
-    if (newResetPass.length < 4) {
+    if (!verifyFullName.trim()) {
+      setAuthError(language === 'hi' ? 'कृपया अपना पंजीकृत पूरा नाम दर्ज करें' : 'Please enter your registered full name');
+      return;
+    }
+    if (!verifyDob) {
+      setAuthError(language === 'hi' ? 'कृपया अपनी पंजीकृत जन्म तिथि दर्ज करें' : 'Please select your registered date of birth');
+      return;
+    }
+
+    setLoading(true);
+    const res = await verifyUserIdentityForReset(loginPhone, verifyFullName, verifyDob);
+    setLoading(false);
+
+    if (!res.success) {
+      setAuthError(res.error);
+    } else {
+      setVerifiedAccount(res.user);
+      setAuthSuccess(res.message);
+      setForgotStep(2);
+    }
+  };
+
+  // 4. Step 2: Update Password after Identity Verification
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+
+    if (!newResetPass || newResetPass.length < 4) {
       setAuthError(language === 'hi' ? 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए' : 'Password must be at least 4 characters');
       return;
     }
@@ -139,6 +178,17 @@ export function OnboardingFlow() {
     if (!res.success) {
       setAuthError(res.error || 'Failed to reset password');
     }
+  };
+
+  const resetForgotState = () => {
+    setAuthError('');
+    setAuthSuccess('');
+    setForgotStep(1);
+    setVerifyFullName('');
+    setVerifyDob('');
+    setVerifiedAccount(null);
+    setNewResetPass('');
+    setConfirmResetPass('');
   };
 
   return (
@@ -180,130 +230,172 @@ export function OnboardingFlow() {
             STEP 1: ONLY LANGUAGE SELECTION (पहला चरण: केवल भाषा)
            ========================================================= */}
         {onboardingStep === 1 && (
-          <div className="onboarding-step-content">
-            <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.4rem' }}>🌐</span>
-              <h2 className="step-main-title">{t('step1Title')}</h2>
+          <div className="onboarding-step-body animate-fadeIn">
+            <div className="step-header">
+              <h2 className="step-title">{t('step1Title')}</h2>
               <p className="step-sub-title">{t('step1Sub')}</p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              {/* Hindi Option */}
+            <div className="lang-select-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.85rem', marginTop: '1.5rem' }}>
               <button
-                className="language-select-btn"
+                className={`lang-card-btn ${language === 'hi' ? 'selected' : ''}`}
                 onClick={() => selectLanguageAndNext('hi')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderRadius: 'var(--radius-lg)' }}
               >
-                <div className="lang-icon-circle">हिं</div>
-                <div className="lang-text-wrap">
-                  <div className="lang-name">हिंदी (Hindi)</div>
-                  <div className="lang-sub">नमस्ते! ऐप का उपयोग हिंदी में करें</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '1.75rem' }}>🇮🇳</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>हिंदी (Hindi)</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>हनुमानगढ़ और गंगानगर के लिए अनुशंसित</div>
+                  </div>
                 </div>
-                <ChevronRight size={20} color="var(--primary-emerald)" />
+                <ChevronRight size={20} color="var(--primary-forest)" />
               </button>
 
-              {/* Punjabi Option */}
               <button
-                className="language-select-btn"
+                className={`lang-card-btn ${language === 'pa' ? 'selected' : ''}`}
                 onClick={() => selectLanguageAndNext('pa')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderRadius: 'var(--radius-lg)' }}
               >
-                <div className="lang-icon-circle" style={{ background: '#fef3c7', color: 'var(--accent-gold)' }}>ਪੰ</div>
-                <div className="lang-text-wrap">
-                  <div className="lang-name">ਪੰਜਾਬੀ (Punjabi)</div>
-                  <div className="lang-sub">ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਐਪ ਦੀ ਵਰਤੋਂ ਪੰਜਾਬੀ ਵਿੱਚ ਕਰੋ</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '1.75rem' }}>🌾</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>ਪੰਜਾਬੀ (Punjabi)</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ਪੰਜਾਬੀ ਵਿੱਚ ਸ਼ੁੱਧ ਖਰੀਦਦਾਰੀ ਕਰੋ</div>
+                  </div>
                 </div>
-                <ChevronRight size={20} color="var(--accent-gold)" />
+                <ChevronRight size={20} color="var(--primary-forest)" />
               </button>
 
-              {/* English Option */}
               <button
-                className="language-select-btn"
+                className={`lang-card-btn ${language === 'en' ? 'selected' : ''}`}
                 onClick={() => selectLanguageAndNext('en')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderRadius: 'var(--radius-lg)' }}
               >
-                <div className="lang-icon-circle" style={{ background: '#eff6ff', color: '#2563eb' }}>EN</div>
-                <div className="lang-text-wrap">
-                  <div className="lang-name">English</div>
-                  <div className="lang-sub">Continue using app in English</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ fontSize: '1.75rem' }}>🇬🇧</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>English</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Universal language</div>
+                  </div>
                 </div>
-                <ChevronRight size={20} color="#2563eb" />
+                <ChevronRight size={20} color="var(--primary-forest)" />
               </button>
             </div>
           </div>
         )}
 
         {/* =========================================================
-            STEP 2: CHOOSE ROLE (FARMER / PRODUCER VS BUYER)
+            STEP 2: ONLY ROLE SELECTION (दूसरा चरण: खरीदार या किसान)
            ========================================================= */}
         {onboardingStep === 2 && (
-          <div className="onboarding-step-content">
-            <button className="back-step-btn" onClick={() => setOnboardingStep(1)}>
-              <ArrowLeft size={16} />
-              <span>{t('stepBack')}</span>
-            </button>
-
-            <div style={{ textAlign: 'center', margin: '0.75rem 0 1.5rem' }}>
-              <h2 className="step-main-title">{t('step2Title')}</h2>
+          <div className="onboarding-step-body animate-fadeIn">
+            <div className="step-header">
+              <h2 className="step-title">{t('step2Title')}</h2>
               <p className="step-sub-title">{t('step2Sub')}</p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* Farmer Option */}
-              <button
-                className="role-selection-card seller-card"
-                onClick={() => selectRoleAndNext('producer')}
-              >
-                <div className="role-icon-box" style={{ background: '#dcfce7', color: 'var(--primary-forest)' }}>
-                  <Tractor size={32} strokeWidth={2.2} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="role-card-header-line">
-                    <span className="role-title-text">{t('roleProducer')}</span>
-                    <span className="role-tag-badge seller">0% Middlemen</span>
-                  </div>
-                  <p className="role-desc-text">{t('roleProducerSub')}</p>
-                </div>
-                <ChevronRight size={20} color="var(--primary-emerald)" />
-              </button>
-
-              {/* Buyer Option */}
-              <button
-                className="role-selection-card buyer-card"
+            <div className="role-select-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1.25rem' }}>
+              {/* Buyer Choice */}
+              <div 
+                className="role-card"
                 onClick={() => selectRoleAndNext('buyer')}
+                style={{ cursor: 'pointer' }}
               >
-                <div className="role-icon-box" style={{ background: '#fef3c7', color: 'var(--accent-gold)' }}>
-                  <ShoppingBag size={32} strokeWidth={2.2} />
+                <div className="role-card-icon-wrap" style={{ background: '#fef3c7', color: 'var(--accent-gold)' }}>
+                  <ShoppingBag size={28} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div className="role-card-header-line">
-                    <span className="role-title-text">{t('roleBuyer')}</span>
-                    <span className="role-tag-badge buyer">100% Pure</span>
-                  </div>
-                  <p className="role-desc-text">{t('roleBuyerSub')}</p>
+                  <h3 className="role-card-title">{t('buyerRoleTitle')}</h3>
+                  <p className="role-card-desc">{t('buyerRoleDesc')}</p>
                 </div>
                 <ChevronRight size={20} color="var(--accent-gold)" />
-              </button>
+              </div>
+
+              {/* Farmer Choice */}
+              <div 
+                className="role-card"
+                onClick={() => selectRoleAndNext('producer')}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="role-card-icon-wrap" style={{ background: '#dcfce7', color: 'var(--primary-forest)' }}>
+                  <Tractor size={28} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 className="role-card-title">{t('farmerRoleTitle')}</h3>
+                  <p className="role-card-desc">{t('farmerRoleDesc')}</p>
+                </div>
+                <ChevronRight size={20} color="var(--primary-emerald)" />
+              </div>
             </div>
+
+            <button 
+              className="btn-back-link" 
+              onClick={() => setOnboardingStep(1)}
+              style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', width: '100%' }}
+            >
+              <ArrowLeft size={16} />
+              <span>{t('stepBack')} (Change Language)</span>
+            </button>
           </div>
         )}
 
         {/* =========================================================
-            STEP 3: REGISTRATION & SECURE LOGIN (NO OTP)
+            STEP 3: DIRECT SIGN UP OR LOGIN WITH PASSWORD
            ========================================================= */}
         {onboardingStep === 3 && (
-          <div className="onboarding-step-content">
-            <button className="back-step-btn" onClick={() => setOnboardingStep(2)}>
-              <ArrowLeft size={16} />
-              <span>{t('stepBack')}</span>
-            </button>
+          <div className="onboarding-step-body animate-fadeIn">
+            {/* Top Switcher Tabs */}
+            {step3Mode !== 'forgot_password' && (
+              <div className="auth-tab-bar" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', background: 'var(--bg-subtle)', padding: '0.3rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
+                <button
+                  type="button"
+                  className={`auth-tab-btn ${step3Mode === 'register' ? 'active' : ''}`}
+                  onClick={() => { setAuthError(''); setStep3Mode('register'); }}
+                  style={{
+                    padding: '0.55rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: step3Mode === 'register' ? '#ffffff' : 'transparent',
+                    color: step3Mode === 'register' ? 'var(--primary-forest)' : 'var(--text-muted)',
+                    boxShadow: step3Mode === 'register' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                  }}
+                >
+                  ✨ {language === 'hi' ? 'नया खाता बनाएं' : 'Create Account'}
+                </button>
+                <button
+                  type="button"
+                  className={`auth-tab-btn ${step3Mode === 'login' ? 'active' : ''}`}
+                  onClick={() => { setAuthError(''); setStep3Mode('login'); }}
+                  style={{
+                    padding: '0.55rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: step3Mode === 'login' ? '#ffffff' : 'transparent',
+                    color: step3Mode === 'login' ? 'var(--primary-forest)' : 'var(--text-muted)',
+                    boxShadow: step3Mode === 'login' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                  }}
+                >
+                  🔑 {language === 'hi' ? 'लॉगिन करें' : 'Sign In'}
+                </button>
+              </div>
+            )}
 
-            <div style={{ margin: '0.75rem 0 1.25rem' }}>
-              <h2 className="step-main-title">
+            <div className="step-header">
+              <h2 className="step-title">
                 {step3Mode === 'register' ? t('step3TitleRegister') :
-                 step3Mode === 'forgot_password' ? t('resetPassword') :
+                 step3Mode === 'forgot_password' ? (forgotStep === 1 ? t('identityVerificationTitle') : t('resetPassword')) :
                  t('step3TitleLogin')}
               </h2>
               <p className="step-sub-title">
                 {step3Mode === 'register' ? t('step3SubRegister') :
-                 step3Mode === 'forgot_password' ? (language === 'hi' ? 'अपना मोबाइल नंबर दर्ज कर नया पासवर्ड बनाएं' : 'Enter phone & create a new password') :
+                 step3Mode === 'forgot_password' ? (forgotStep === 1 ? t('identityVerificationSub') : (language === 'hi' ? 'नया सुरक्षित पासवर्ड सेट करें' : 'Set a new secure password')) :
                  t('step3SubLogin')}
               </p>
             </div>
@@ -429,15 +521,15 @@ export function OnboardingFlow() {
                   </div>
                 </div>
 
-                {/* Set Password */}
+                {/* Create Password */}
                 <div className="form-group">
-                  <label className="form-label">{t('passwordLabel')} *</label>
+                  <label className="form-label">{t('createPasswordLabel')} *</label>
                   <div className="input-with-icon" style={{ position: 'relative' }}>
                     <Lock size={18} className="field-icon" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       className="form-input field-input"
-                      placeholder={t('passwordPlaceholder')}
+                      placeholder="••••••••"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required
@@ -453,13 +545,13 @@ export function OnboardingFlow() {
                 </div>
 
                 <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
-                  <CheckCircle2 size={18} />
-                  <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : (language === 'hi' ? 'खाता बनाएं और ऐप खोलें' : 'Create Account & Enter App')}</span>
+                  <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : (language === 'hi' ? 'खाता बनाएं' : 'Create Account')}</span>
+                  <ArrowRight size={18} />
                 </button>
               </form>
             )}
 
-            {/* 2. Password Login Form */}
+            {/* 2. Direct Password Login Form */}
             {step3Mode === 'login' && (
               <form onSubmit={handlePasswordLoginSubmit}>
                 <div className="form-group">
@@ -483,7 +575,7 @@ export function OnboardingFlow() {
                     <label className="form-label">{t('loginPasswordLabel')} *</label>
                     <button
                       type="button"
-                      onClick={() => { setAuthError(''); setStep3Mode('forgot_password'); }}
+                      onClick={() => { resetForgotState(); setStep3Mode('forgot_password'); }}
                       style={{ fontSize: '0.78rem', color: 'var(--primary-forest)', fontWeight: '700', textDecoration: 'underline' }}
                     >
                       {t('forgotPassword')}
@@ -516,54 +608,117 @@ export function OnboardingFlow() {
               </form>
             )}
 
-            {/* 3. Direct Forgot Password Form */}
+            {/* 3. Secure Forgot Password (2-Step Identity Verification) */}
             {step3Mode === 'forgot_password' && (
-              <form onSubmit={handleResetPasswordSubmit}>
-                <div className="form-group">
-                  <label className="form-label">{t('phoneLabel')} *</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <span className="phone-prefix-badge">+91</span>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      placeholder={t('phonePlaceholder')}
-                      value={loginPhone}
-                      maxLength={10}
-                      onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, ''))}
-                      required
-                    />
-                  </div>
-                </div>
+              <div>
+                {/* STEP 1: IDENTITY VERIFICATION (Name + DOB) */}
+                {forgotStep === 1 && (
+                  <form onSubmit={handleVerifyIdentitySubmit}>
+                    {/* Registered Phone */}
+                    <div className="form-group">
+                      <label className="form-label">{t('phoneLabel')} *</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <span className="phone-prefix-badge">+91</span>
+                        <input
+                          type="tel"
+                          className="form-input"
+                          placeholder={t('phonePlaceholder')}
+                          value={loginPhone}
+                          maxLength={10}
+                          onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, ''))}
+                          required
+                          autoFocus
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label className="form-label">{t('newPasswordLabel')} *</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    placeholder="••••••••"
-                    value={newResetPass}
-                    onChange={(e) => setNewResetPass(e.target.value)}
-                    required
-                  />
-                </div>
+                    {/* Registered Full Name */}
+                    <div className="form-group">
+                      <label className="form-label">{t('fullNameLabel')} ({language === 'hi' ? 'पंजीकृत नाम' : 'Registered'}) *</label>
+                      <div className="input-with-icon">
+                        <User size={18} className="field-icon" />
+                        <input
+                          type="text"
+                          className="form-input field-input"
+                          placeholder={t('fullNamePlaceholder')}
+                          value={verifyFullName}
+                          onChange={(e) => setVerifyFullName(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
 
-                <div className="form-group">
-                  <label className="form-label">{t('confirmPasswordLabel')} *</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    placeholder="••••••••"
-                    value={confirmResetPass}
-                    onChange={(e) => setConfirmResetPass(e.target.value)}
-                    required
-                  />
-                </div>
+                    {/* Registered Date of Birth */}
+                    <div className="form-group">
+                      <label className="form-label">{t('dobLabel')} ({language === 'hi' ? 'पंजीकृत जन्म तिथि' : 'Registered'}) *</label>
+                      <div className="input-with-icon">
+                        <Calendar size={18} className="field-icon" />
+                        <input
+                          type="date"
+                          className="form-input field-input"
+                          value={verifyDob}
+                          onChange={(e) => setVerifyDob(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
 
-                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
-                  <CheckCircle2 size={17} />
-                  <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Resetting...') : t('resetPassword')}</span>
-                </button>
-              </form>
+                    <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
+                      <ShieldCheck size={18} />
+                      <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyIdentityBtn')}</span>
+                    </button>
+                  </form>
+                )}
+
+                {/* STEP 2: SET NEW PASSWORD */}
+                {forgotStep === 2 && (
+                  <form onSubmit={handleResetPasswordSubmit}>
+                    {verifiedAccount && (
+                      <div style={{ background: '#ecfdf5', border: '1.5px solid #a7f3d0', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <ShieldCheck size={20} color="#16a34a" />
+                        <div>
+                          <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#065f46' }}>
+                            {verifiedAccount.name}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#047857' }}>
+                            ✓ {t('verifiedAccountLabel')} • +91 {verifiedAccount.phone}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label className="form-label">{t('newPasswordLabel')} *</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="••••••••"
+                        value={newResetPass}
+                        onChange={(e) => setNewResetPass(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">{t('confirmPasswordLabel')} *</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="••••••••"
+                        value={confirmResetPass}
+                        onChange={(e) => setConfirmResetPass(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
+                      <KeyRound size={18} />
+                      <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Updating...') : t('resetPassword')}</span>
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
 
             {/* Bottom Toggle Between Register and Login */}

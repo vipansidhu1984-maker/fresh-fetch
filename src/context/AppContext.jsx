@@ -573,14 +573,73 @@ export function AppProvider({ children }) {
     return { success: true, user };
   };
 
-  // 4. Request Password Reset OTP
-  const requestPasswordReset = (phone) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const user = registeredUsers.find((u) => u.phone === cleanPhone);
-    return { success: true, simulatedOtp: '4821', phone: cleanPhone, user };
+  // 4. Verify User Identity for Secure Password Reset (Zero-Cost, Full Name & DOB Authentication)
+  const verifyUserIdentityForReset = async (phone, fullName, dob) => {
+    const cleanPhone = (phone ? String(phone).replace(/\D/g, '') : '').trim();
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return { success: false, error: t('userNotFound') || 'Please enter a valid 10-digit mobile number' };
+    }
+
+    let user = registeredUsers.find((u) => u.phone === cleanPhone);
+
+    if (!user && isFirebaseConfigured) {
+      try {
+        const cloudUser = await fetchUserFromCloud(cleanPhone);
+        if (cloudUser) {
+          user = cloudUser;
+          setRegisteredUsers((prev) => [...prev.filter((u) => u.phone !== cleanPhone), cloudUser]);
+        }
+      } catch (err) {
+        console.warn("Cloud user fetch on identity verify:", err);
+      }
+    }
+
+    if (!user) {
+      return {
+        success: false,
+        error: t('userNotFound') || 'No account found with this mobile number. Please create an account.'
+      };
+    }
+
+    // Normalize and compare Full Name and Date of Birth
+    const enteredName = (fullName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const registeredName = (user.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const enteredDob = (dob || '').trim();
+    const registeredDob = (user.dob || '').trim();
+
+    // Flexible name matching (exact match, contains first name, or contains full name)
+    const nameMatches = Boolean(
+      enteredName &&
+      registeredName &&
+      (enteredName === registeredName ||
+       registeredName.includes(enteredName) ||
+       enteredName.includes(registeredName) ||
+       enteredName.split(' ')[0] === registeredName.split(' ')[0])
+    );
+
+    // Date of Birth match
+    const dobMatches = Boolean(
+      !registeredDob ||
+      enteredDob === registeredDob ||
+      enteredDob.replace(/\D/g, '') === registeredDob.replace(/\D/g, '')
+    );
+
+    if (!nameMatches || !dobMatches) {
+      return {
+        success: false,
+        error: t('verificationFailed') || 'Verification failed. The Full Name or Date of Birth does not match the account registered with this mobile number.'
+      };
+    }
+
+    return {
+      success: true,
+      user,
+      message: t('identityVerifiedSuccess') || 'Identity verified successfully! Please set your new password.'
+    };
   };
 
-  // 5. Reset Password Directly without OTP
+  // 5. Reset Password Directly after Identity Verification
   const resetPasswordDirect = async (phone, newPassword) => {
     const cleanPhone = phone.replace(/\D/g, '');
     let user = registeredUsers.find((u) => u.phone === cleanPhone);
@@ -597,14 +656,9 @@ export function AppProvider({ children }) {
     }
 
     if (!user) {
-      user = {
-        id: `user-${Date.now()}`,
-        name: 'Fresh Fetch Member',
-        phone: cleanPhone,
-        password: newPassword,
-        location: 'Hanumangarh Town',
-        regionId: 'hnm-town',
-        role: role || 'buyer'
+      return {
+        success: false,
+        error: t('userNotFound') || 'No account found with this mobile number.'
       };
     }
 
@@ -1191,7 +1245,7 @@ export function AppProvider({ children }) {
         loginWithPassword,
         requestLoginOtp,
         verifyLoginOtp,
-        requestPasswordReset,
+        verifyUserIdentityForReset,
         resetPasswordWithOtp,
         resetPasswordDirect,
         registerNewUser,

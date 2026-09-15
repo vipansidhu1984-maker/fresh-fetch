@@ -13,7 +13,9 @@ import {
   CheckCircle2, 
   ArrowRight, 
   Tractor,
-  ShoppingBag
+  ShoppingBag,
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
 
 export function AuthModal() {
@@ -21,6 +23,7 @@ export function AuthModal() {
     showAuthModal, 
     setShowAuthModal, 
     loginWithPassword,
+    verifyUserIdentityForReset,
     resetPasswordDirect,
     registerNewUser,
     role,
@@ -39,7 +42,11 @@ export function AuthModal() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Forgot Password Fields
+  // 2-Step Forgot Password Fields (Identity Verification -> Set New Password)
+  const [forgotStep, setForgotStep] = useState(1);
+  const [verifyFullName, setVerifyFullName] = useState('');
+  const [verifyDob, setVerifyDob] = useState('');
+  const [verifiedAccount, setVerifiedAccount] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -59,6 +66,10 @@ export function AuthModal() {
   const resetState = () => {
     setErrorMessage('');
     setSuccessMessage('');
+    setForgotStep(1);
+    setVerifyFullName('');
+    setVerifyDob('');
+    setVerifiedAccount(null);
     setNewPassword('');
     setConfirmPassword('');
   };
@@ -72,6 +83,7 @@ export function AuthModal() {
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
     if (!phone || phone.length < 10) {
       setErrorMessage(language === 'hi' ? 'कृपया 10 अंकों का वैध मोबाइल नंबर दर्ज करें' : 'Please enter a valid 10-digit phone number');
       return;
@@ -91,15 +103,45 @@ export function AuthModal() {
     }
   };
 
-  // 2. Handle Forgot Password Reset
-  const handleResetPasswordSubmit = async (e) => {
+  // 2. Step 1: Verify User Identity (Name + DOB) before allowing password reset
+  const handleVerifyIdentitySubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
+
     if (!phone || phone.length < 10) {
       setErrorMessage(language === 'hi' ? 'कृपया अपना 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your registered 10-digit phone number');
       return;
     }
-    if (newPassword.length < 4) {
+    if (!verifyFullName.trim()) {
+      setErrorMessage(language === 'hi' ? 'कृपया अपना पंजीकृत पूरा नाम दर्ज करें' : 'Please enter your registered full name');
+      return;
+    }
+    if (!verifyDob) {
+      setErrorMessage(language === 'hi' ? 'कृपया अपनी जन्म तिथि दर्ज करें' : 'Please select your registered date of birth');
+      return;
+    }
+
+    setLoading(true);
+    const res = await verifyUserIdentityForReset(phone, verifyFullName, verifyDob);
+    setLoading(false);
+
+    if (!res.success) {
+      setErrorMessage(res.error);
+    } else {
+      setVerifiedAccount(res.user);
+      setSuccessMessage(res.message);
+      setForgotStep(2);
+    }
+  };
+
+  // 3. Step 2: Set New Password after identity is verified
+  const handleSetNewPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!newPassword || newPassword.length < 4) {
       setErrorMessage(language === 'hi' ? 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए' : 'Password must be at least 4 characters long');
       return;
     }
@@ -111,6 +153,7 @@ export function AuthModal() {
     setLoading(true);
     const res = await resetPasswordDirect(phone, newPassword);
     setLoading(false);
+
     if (!res.success) {
       setErrorMessage(res.error || 'Failed to reset password');
     } else {
@@ -118,12 +161,18 @@ export function AuthModal() {
     }
   };
 
-  // 3. Handle Registration Submit
+  // 4. Handle Registration Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
+
     if (!regData.fullName.trim()) {
       setErrorMessage(language === 'hi' ? 'कृपया अपना नाम दर्ज करें' : 'Please enter your full name');
+      return;
+    }
+    if (!regData.dob) {
+      setErrorMessage(language === 'hi' ? 'कृपया जन्म तिथि दर्ज करें' : 'Please enter your date of birth');
       return;
     }
     if (!regData.phone || regData.phone.length < 10) {
@@ -138,6 +187,7 @@ export function AuthModal() {
     setLoading(true);
     const res = await registerNewUser(regData);
     setLoading(false);
+
     if (!res.success) {
       setErrorMessage(res.error || (language === 'hi' ? 'खाता बनाने में विफल' : 'Failed to register account'));
       if (res.alreadyRegistered) {
@@ -160,7 +210,7 @@ export function AuthModal() {
             <span style={{ fontSize: '1.35rem' }}>🔐</span>
             <h3 className="modal-title">
               {authMode === 'register' ? t('step3TitleRegister') :
-               authMode === 'forgot_password' ? t('resetPassword') :
+               authMode === 'forgot_password' ? (forgotStep === 1 ? t('identityVerificationTitle') : t('resetPassword')) :
                t('step3TitleLogin')}
             </h3>
           </div>
@@ -325,74 +375,149 @@ export function AuthModal() {
           )}
 
           {/* =========================================================
-              VIEW 2: DIRECT FORGOT PASSWORD RESET
+              VIEW 2: SECURE FORGOT PASSWORD (2-STEP IDENTITY VERIFICATION)
              ========================================================= */}
           {authMode === 'forgot_password' && (
-            <form onSubmit={handleResetPasswordSubmit}>
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                  {t('resetPassword')}
-                </h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {language === 'hi' ? 'अपना मोबाइल नंबर दर्ज करें और नया पासवर्ड सेट करें।' : 'Enter your mobile number and set a new password.'}
-                </p>
-              </div>
+            <div>
+              {/* STEP 1: VERIFY IDENTITY WITH FULL NAME & DOB */}
+              {forgotStep === 1 && (
+                <form onSubmit={handleVerifyIdentitySubmit}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
+                      <ShieldCheck size={18} color="var(--primary-emerald)" />
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                        {t('identityVerificationTitle')}
+                      </h4>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                      {t('identityVerificationSub')}
+                    </p>
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label">{t('phoneLabel')} *</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <span className="phone-prefix-badge">+91</span>
-                  <input
-                    type="tel"
-                    className="form-input"
-                    placeholder={t('phonePlaceholder')}
-                    value={phone}
-                    maxLength={10}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                    required
-                  />
-                </div>
-              </div>
+                  {/* Registered Phone */}
+                  <div className="form-group">
+                    <label className="form-label">{t('phoneLabel')} *</label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span className="phone-prefix-badge">+91</span>
+                      <input
+                        type="tel"
+                        className="form-input"
+                        placeholder={t('phonePlaceholder')}
+                        value={phone}
+                        maxLength={10}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label">{t('newPasswordLabel')} *</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
+                  {/* Registered Full Name */}
+                  <div className="form-group">
+                    <label className="form-label">{t('fullNameLabel')} ({language === 'hi' ? 'पंजीकृत नाम' : 'Registered'}) *</label>
+                    <div className="input-with-icon">
+                      <User size={17} className="field-icon" />
+                      <input
+                        type="text"
+                        className="form-input field-input"
+                        placeholder={t('fullNamePlaceholder')}
+                        value={verifyFullName}
+                        onChange={(e) => setVerifyFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label">{t('confirmPasswordLabel')} *</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
+                  {/* Registered Date of Birth */}
+                  <div className="form-group">
+                    <label className="form-label">{t('dobLabel')} ({language === 'hi' ? 'पंजीकृत जन्म तिथि' : 'Registered'}) *</label>
+                    <div className="input-with-icon">
+                      <Calendar size={17} className="field-icon" />
+                      <input
+                        type="date"
+                        className="form-input field-input"
+                        value={verifyDob}
+                        onChange={(e) => setVerifyDob(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
-                <CheckCircle2 size={17} />
-                <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Resetting...') : t('resetPassword')}</span>
-              </button>
+                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
+                    <ShieldCheck size={17} />
+                    <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyIdentityBtn')}</span>
+                  </button>
 
-              <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
-                >
-                  ← {t('alreadyHaveAccount')}
-                </button>
-              </div>
-            </form>
+                  <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => switchMode('login')}
+                      style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
+                    >
+                      ← {t('alreadyHaveAccount')}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 2: SET NEW PASSWORD (ONLY UNLOCKED AFTER IDENTITY VERIFICATION) */}
+              {forgotStep === 2 && (
+                <form onSubmit={handleSetNewPasswordSubmit}>
+                  {verifiedAccount && (
+                    <div style={{ background: '#ecfdf5', border: '1.5px solid #a7f3d0', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <ShieldCheck size={20} color="#16a34a" />
+                      <div>
+                        <div style={{ fontSize: '0.86rem', fontWeight: '800', color: '#065f46' }}>
+                          {verifiedAccount.name}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#047857' }}>
+                          ✓ {t('verifiedAccountLabel')} • +91 {verifiedAccount.phone}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                      {t('resetPassword')}
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {language === 'hi' ? 'अपने खाते के लिए नया सुरक्षित पासवर्ड दर्ज करें।' : 'Set a new secure password for your verified account.'}
+                    </p>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">{t('newPasswordLabel')} *</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">{t('confirmPasswordLabel')} *</label>
+                    <input
+                      type="password"
+                      className="form-input"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
+                    <KeyRound size={17} />
+                    <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Updating...') : t('resetPassword')}</span>
+                  </button>
+                </form>
+              )}
+            </div>
           )}
 
           {/* =========================================================
@@ -452,7 +577,7 @@ export function AuthModal() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.35rem',
-                      border: regData.role === 'producer' ? '2px solid var(--primary-forest)' : '1px solid var(--card-border)',
+                      border: regData.role === 'producer' ? '2px solid var(--primary-emerald)' : '1px solid var(--card-border)',
                       background: regData.role === 'producer' ? '#dcfce7' : 'var(--bg-subtle)',
                       color: regData.role === 'producer' ? 'var(--primary-forest)' : 'var(--text-muted)'
                     }}
@@ -463,11 +588,12 @@ export function AuthModal() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              {/* DOB & Region */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <div className="form-group">
                   <label className="form-label">{t('dobLabel')} *</label>
                   <div className="input-with-icon">
-                    <Calendar size={17} className="field-icon" />
+                    <Calendar size={16} className="field-icon" />
                     <input
                       type="date"
                       className="form-input field-input"
@@ -481,7 +607,7 @@ export function AuthModal() {
                 <div className="form-group">
                   <label className="form-label">{t('locationLabel')}</label>
                   <div className="input-with-icon">
-                    <MapPin size={17} className="field-icon" />
+                    <MapPin size={16} className="field-icon" />
                     <select
                       className="form-select field-input"
                       value={regData.regionId}
@@ -504,6 +630,7 @@ export function AuthModal() {
                 </div>
               </div>
 
+              {/* Mobile Number */}
               <div className="form-group">
                 <label className="form-label">{t('phoneLabel')} *</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -520,14 +647,15 @@ export function AuthModal() {
                 </div>
               </div>
 
+              {/* Password */}
               <div className="form-group">
-                <label className="form-label">{t('passwordLabel')} *</label>
+                <label className="form-label">{t('createPasswordLabel')} *</label>
                 <div className="input-with-icon" style={{ position: 'relative' }}>
                   <Lock size={17} className="field-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     className="form-input field-input"
-                    placeholder={t('passwordPlaceholder')}
+                    placeholder="••••••••"
                     value={regData.password}
                     onChange={(e) => setRegData({ ...regData, password: e.target.value })}
                     required
@@ -543,8 +671,8 @@ export function AuthModal() {
               </div>
 
               <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
-                <CheckCircle2 size={17} />
-                <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : t('step3TitleRegister')}</span>
+                <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating account...') : (language === 'hi' ? 'खाता बनाएं' : 'Create Account')}</span>
+                <ArrowRight size={17} />
               </button>
 
               <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
@@ -553,7 +681,7 @@ export function AuthModal() {
                   onClick={() => switchMode('login')}
                   style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
                 >
-                  {t('alreadyHaveAccount')}
+                  ← {t('alreadyHaveAccount')}
                 </button>
               </div>
             </form>

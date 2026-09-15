@@ -210,6 +210,12 @@ export const translations = {
     passwordMismatch: "New password and confirmation do not match.",
     otpVerified: "OTP verified successfully!",
     invalidOtp: "Invalid OTP code. Please enter the 6-digit code sent to your phone.",
+    identityVerificationTitle: "Identity Verification",
+    identityVerificationSub: "Enter your registered full name and date of birth to verify you own this account.",
+    verifyIdentityBtn: "Verify Identity & Continue",
+    verificationFailed: "Verification failed. The Full Name or Date of Birth does not match the account registered with this mobile number.",
+    identityVerifiedSuccess: "Identity verified successfully! Please set your new password.",
+    verifiedAccountLabel: "Verified Account Owner",
 
     // Units
     unitKg: "kg",
@@ -426,7 +432,13 @@ export const translations = {
     phoneAlreadyRegistered: "इस मोबाइल नंबर पर पहले से एक खाता पंजीकृत है। कृपया लॉगिन करें।",
     passwordMismatch: "दोनों पासवर्ड समान नहीं हैं।",
     otpVerified: "OTP सफलतापूर्वक सत्यापित!",
-    invalidOtp: "अमान्य OTP कोड। कृपया SMS द्वारा प्राप्त 6 अंकों का कोड दर्ज करें。",
+    invalidOtp: "अमान्य OTP कोड। कृपया SMS द्वारा प्राप्त 6 अंकों का कोड दर्ज करें।",
+    identityVerificationTitle: "खाता पहचान सत्यापन",
+    identityVerificationSub: "खाता स्वामित्व सत्यापित करने के लिए अपना पंजीकृत पूरा नाम और जन्म तिथि दर्ज करें।",
+    verifyIdentityBtn: "पहचान सत्यापित करें और आगे बढ़ें",
+    verificationFailed: "सत्यापन विफल। दर्ज किया गया पूरा नाम या जन्म तिथि इस मोबाइल नंबर के पंजीकृत खाते से मेल नहीं खाती।",
+    identityVerifiedSuccess: "पहचान सफलतापूर्वक सत्यापित हुई! कृपया अपना नया पासवर्ड सेट करें।",
+    verifiedAccountLabel: "सत्यापित खाता स्वामी",
 
     // Units
     unitKg: "किलो (kg)",
@@ -644,6 +656,12 @@ export const translations = {
     passwordMismatch: "ਦੋਵੇਂ ਪਾਸਵਰਡ ਇੱਕੋ ਜਿਹੇ ਨਹੀਂ ਹਨ।",
     otpVerified: "OTP ਸਫਲਤਾਪੂਰਵਕ ਤਸਦੀਕ ਹੋ ਗਿਆ!",
     invalidOtp: "ਗਲਤ OTP ਕੋਡ। ਕਿਰਪਾ ਕਰਕੇ SMS ਰਾਹੀਂ ਆਇਆ 6 ਅੰਕਾਂ ਦਾ ਕੋਡ ਦਰਜ ਕਰੋ।",
+    identityVerificationTitle: "ਖਾਤਾ ਪਛਾਣ ਤਸਦੀਕ",
+    identityVerificationSub: "ਖਾਤਾ ਮਾਲਕੀ ਦੀ ਤਸਦੀਕ ਲਈ ਆਪਣਾ ਰਜਿਸਟਰਡ ਪੂਰਾ ਨਾਮ ਅਤੇ ਜਨਮ ਮਿਤੀ ਦਰਜ ਕਰੋ।",
+    verifyIdentityBtn: "ਪਛਾਣ ਤਸਦੀਕ ਕਰੋ ਅਤੇ ਅੱਗੇ ਵਧੋ",
+    verificationFailed: "ਤਸਦੀਕ ਅਸਫਲ। ਦਰਜ ਕੀਤਾ ਗਿਆ ਪੂਰਾ ਨਾਮ ਜਾਂ ਜਨਮ ਮਿਤੀ ਇਸ ਮੋਬਾਈਲ ਨੰਬਰ ਦੇ ਰਜਿਸਟਰਡ ਖਾਤੇ ਨਾਲ ਮੇਲ ਨਹੀਂ ਖਾਂਦੀ।",
+    identityVerifiedSuccess: "ਪਛਾਣ ਸਫਲਤਾਪੂਰਵਕ ਤਸਦੀਕ ਹੋ ਗਈ! ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਨਵਾਂ ਪਾਸਵਰਡ ਸੈੱਟ ਕਰੋ।",
+    verifiedAccountLabel: "ਤਸਦੀਕਸ਼ੁਦਾ ਖਾਤਾ ਮਾਲਕ",
 
     // Units
     unitKg: "ਕਿਲੋ (kg)",
