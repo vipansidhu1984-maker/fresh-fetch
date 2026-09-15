@@ -405,8 +405,8 @@ export function AppProvider({ children }) {
     return { success: true, simulatedOtp: '4821', phone: cleanPhone, user };
   };
 
-  // 5. Reset Password using OTP & update database (Local + Cloud)
-  const resetPasswordWithOtp = async (phone, otp, newPassword) => {
+  // 5. Reset Password Directly without OTP
+  const resetPasswordDirect = async (phone, newPassword) => {
     const cleanPhone = phone.replace(/\D/g, '');
     let user = registeredUsers.find((u) => u.phone === cleanPhone);
 
@@ -456,6 +456,10 @@ export function AppProvider({ children }) {
     });
 
     return { success: true, user: updatedUser };
+  };
+
+  const resetPasswordWithOtp = async (phone, otp, newPassword) => {
+    return resetPasswordDirect(phone, newPassword);
   };
 
   // 6. Register New User and store in user database
@@ -953,6 +957,7 @@ export function AppProvider({ children }) {
         verifyLoginOtp,
         requestPasswordReset,
         resetPasswordWithOtp,
+        resetPasswordDirect,
         registerNewUser,
         showAuthModal,
         setShowAuthModal,

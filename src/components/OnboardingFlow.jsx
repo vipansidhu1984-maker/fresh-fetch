@@ -16,7 +16,6 @@ import {
   EyeOff, 
   Sparkles, 
   CheckCircle2, 
-  Smartphone,
   ChevronRight,
   KeyRound
 } from 'lucide-react';
@@ -28,15 +27,9 @@ export function OnboardingFlow() {
     setOnboardingStep,
     selectLanguageAndNext,
     selectRoleAndNext,
-    submitRegistrationAndRequestOtp,
-    verifyOtpAndComplete,
     loginWithPassword,
-    requestLoginOtp,
-    requestPasswordReset,
-    resetPasswordWithOtp,
-    isFirebaseConfigured,
-    sendFirebasePhoneOtp,
-    verifyFirebasePhoneOtp,
+    resetPasswordDirect,
+    registerNewUser,
     role,
     t
   } = useApp();
@@ -55,71 +48,22 @@ export function OnboardingFlow() {
 
   const [showPassword, setShowPassword] = useState(false);
   
-  // Auth Mode in Step 3: 'register' | 'login_password' | 'login_otp' | 'forgot_password'
+  // Auth Mode in Step 3: 'register' | 'login' | 'forgot_password'
   const [step3Mode, setStep3Mode] = useState('register');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
 
-  // OTP State (6 Digits for Firebase SMS verification)
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const otpInputRefs = React.useRef([]);
   const [newResetPass, setNewResetPass] = useState('');
   const [confirmResetPass, setConfirmResetPass] = useState('');
-  const [resetOtpSent, setResetOtpSent] = useState(false);
-  const [resetOtpCode, setResetOtpCode] = useState('');
 
-  const handleDigitChange = (index, value) => {
-    const clean = value.replace(/\D/g, '');
-    const newDigits = [...otpDigits];
-
-    if (clean.length > 1) {
-      // Handle paste of full 6-digit code
-      const pastedChars = clean.slice(0, 6).split('');
-      for (let i = 0; i < 6; i++) {
-        newDigits[i] = pastedChars[i] || '';
-      }
-      setOtpDigits(newDigits);
-      const nextIndex = Math.min(pastedChars.length, 5);
-      otpInputRefs.current[nextIndex]?.focus();
-      return;
-    }
-
-    newDigits[index] = clean;
-    setOtpDigits(newDigits);
-
-    // Auto move to next input if filled
-    if (clean && index < 5) {
-      otpInputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasteData) {
-      const newDigits = ['', '', '', '', '', ''];
-      for (let i = 0; i < pasteData.length; i++) {
-        newDigits[i] = pasteData[i];
-      }
-      setOtpDigits(newDigits);
-      const focusIdx = Math.min(pasteData.length, 5);
-      otpInputRefs.current[focusIdx]?.focus();
-    }
-  };
-
-  // 1. Submit Registration Form -> Go to Step 4 (OTP)
+  // 1. Direct Registration Form Submit (No OTP needed)
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
     setAuthSuccess('');
+
     if (!formData.fullName.trim()) {
       setAuthError(language === 'hi' ? 'कृपया अपना नाम दर्ज करें' : 'Please enter your full name');
       return;
@@ -134,29 +78,22 @@ export function OnboardingFlow() {
     }
 
     setLoading(true);
-    setOtpDigits(['', '', '', '', '', '']);
-
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(formData.phone);
-      setLoading(false);
-      if (res.success) {
-        setAuthError('');
-        submitRegistrationAndRequestOtp(formData);
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'SMS OTP भेजने में विफल' : 'Failed to send SMS OTP'));
-      }
-    } else {
-      setLoading(false);
-      setAuthError('');
-      submitRegistrationAndRequestOtp(formData);
+    const res = registerNewUser({
+      ...formData,
+      role: role || 'buyer'
+    });
+    setLoading(false);
+    if (!res.success) {
+      setAuthError(res.error || 'Failed to create account');
     }
   };
 
-  // 2. Submit Password Login
+  // 2. Direct Password Login Submit
   const handlePasswordLoginSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
     setAuthSuccess('');
+
     if (!loginPhone || loginPhone.length < 10) {
       setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
       return;
@@ -174,82 +111,16 @@ export function OnboardingFlow() {
     }
   };
 
-  // 3. Submit OTP Login Request
-  const handleOtpLoginRequest = async (e) => {
+  // 3. Direct Password Reset Submit
+  const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
     setAuthSuccess('');
+
     if (!loginPhone || loginPhone.length < 10) {
-      setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
+      setAuthError(language === 'hi' ? 'कृपया अपना 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
       return;
     }
-
-    setLoading(true);
-    setOtpDigits(['', '', '', '', '', '']);
-
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(loginPhone);
-      setLoading(false);
-      if (res.success) {
-        setAuthError('');
-        submitRegistrationAndRequestOtp({
-          phone: loginPhone,
-          isOtpLogin: true
-        });
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'SMS OTP भेजने में विफल' : 'Failed to send SMS OTP'));
-      }
-    } else {
-      setLoading(false);
-      const res = requestLoginOtp(loginPhone);
-      if (res.success) {
-        setAuthError('');
-        submitRegistrationAndRequestOtp({
-          phone: loginPhone,
-          isOtpLogin: true
-        });
-      } else {
-        setAuthError(res.error);
-      }
-    }
-  };
-
-  // 4. Submit Forgot Password OTP Request
-  const handleForgotOtpRequest = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthSuccess('');
-    if (!loginPhone || loginPhone.length < 10) {
-      setAuthError(language === 'hi' ? 'कृपया 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your 10-digit mobile number');
-      return;
-    }
-
-    setLoading(true);
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(loginPhone);
-      setLoading(false);
-      setResetOtpSent(true);
-      if (res.success) {
-        setAuthSuccess(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'SMS भेजने में विफल' : 'Failed to send SMS'));
-      }
-    } else {
-      setLoading(false);
-      const res = requestPasswordReset(loginPhone);
-      if (res.success) {
-        setResetOtpSent(true);
-        setAuthSuccess(language === 'hi' ? 'सत्यापन कोड भेजा गया' : 'Verification Code Sent');
-      } else {
-        setAuthError(res.error);
-      }
-    }
-  };
-
-  // Submit Password Reset
-  const handleResetPasswordFinal = async (e) => {
-    e.preventDefault();
-    setAuthError('');
     if (newResetPass.length < 4) {
       setAuthError(language === 'hi' ? 'पासवर्ड कम से कम 4 अक्षरों का होना चाहिए' : 'Password must be at least 4 characters');
       return;
@@ -260,68 +131,10 @@ export function OnboardingFlow() {
     }
 
     setLoading(true);
-    if (isFirebaseConfigured && window.confirmationResult) {
-      const res = await verifyFirebasePhoneOtp(resetOtpCode);
-      setLoading(false);
-      if (res.success) {
-        resetPasswordWithOtp(loginPhone, resetOtpCode, newResetPass);
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'अमान्य OTP कोड' : 'Invalid OTP code'));
-      }
-    } else {
-      setLoading(false);
-      const res = await resetPasswordWithOtp(loginPhone, resetOtpCode, newResetPass);
-      if (!res.success) {
-        setAuthError(res.error);
-      }
-    }
-  };
-
-  // Step 4 OTP verify
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError('');
-    const code = otpDigits.join('').trim();
-
-    if (!code || code.length < 6) {
-      setAuthError(language === 'hi' ? 'कृपया पूरा 6 अंकों का OTP कोड दर्ज करें' : 'Please enter the full 6-digit OTP code');
-      return;
-    }
-
-    setLoading(true);
-    if (isFirebaseConfigured && window.confirmationResult) {
-      const res = await verifyFirebasePhoneOtp(code);
-      setLoading(false);
-      if (res.success) {
-        verifyOtpAndComplete(code);
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'अमान्य OTP कोड। कृपया अपने मोबाइल पर आया SMS कोड जांचें।' : 'Invalid OTP code. Please check the 6-digit code sent to your phone.'));
-      }
-    } else {
-      setLoading(false);
-      verifyOtpAndComplete(code);
-    }
-  };
-
-  // Resend OTP in Step 4
-  const handleResendOtp = async () => {
-    setAuthError('');
-    setAuthSuccess('');
-    const phoneToUse = formData.phone || loginPhone;
-    if (!phoneToUse) return;
-
-    setLoading(true);
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(phoneToUse);
-      setLoading(false);
-      if (res.success) {
-        setAuthSuccess(language === 'hi' ? 'नया SMS OTP भेजा गया है' : 'New SMS OTP Sent!');
-      } else {
-        setAuthError(res.error || (language === 'hi' ? 'SMS पुनः भेजने में असमर्थ' : 'Could not resend SMS. Please try again in a few minutes.'));
-      }
-    } else {
-      setLoading(false);
-      setAuthSuccess(language === 'hi' ? 'नया सत्यापन कोड भेजा गया' : 'New Verification Code Sent');
+    const res = await resetPasswordDirect(loginPhone, newResetPass);
+    setLoading(false);
+    if (!res.success) {
+      setAuthError(res.error || 'Failed to reset password');
     }
   };
 
@@ -346,15 +159,14 @@ export function OnboardingFlow() {
               <div className="step-progress-bar">
                 <div 
                   className="step-progress-fill" 
-                  style={{ width: `${((onboardingStep - 1) / 3) * 100}%` }}
+                  style={{ width: `${((onboardingStep - 1) / 2) * 100}%` }}
                 />
               </div>
               <div className="step-progress-labels">
-                <span>{language === 'hi' ? `चरण ${onboardingStep - 1} / 3` : `Step ${onboardingStep - 1} of 3`}</span>
+                <span>{language === 'hi' ? `चरण ${onboardingStep - 1} / 2` : `Step ${onboardingStep - 1} of 2`}</span>
                 <span>
                   {onboardingStep === 2 && (language === 'hi' ? 'भूमिका चयन' : 'Choose Role')}
                   {onboardingStep === 3 && (language === 'hi' ? 'खाता विवरण' : 'Account Details')}
-                  {onboardingStep === 4 && (language === 'hi' ? 'OTP सत्यापन' : 'OTP Verify')}
                 </span>
               </div>
             </div>
@@ -471,7 +283,7 @@ export function OnboardingFlow() {
         )}
 
         {/* =========================================================
-            STEP 3: REGISTRATION & SECURE LOGIN
+            STEP 3: REGISTRATION & SECURE LOGIN (NO OTP)
            ========================================================= */}
         {onboardingStep === 3 && (
           <div className="onboarding-step-content">
@@ -488,50 +300,10 @@ export function OnboardingFlow() {
               </h2>
               <p className="step-sub-title">
                 {step3Mode === 'register' ? t('step3SubRegister') :
-                 step3Mode === 'forgot_password' ? (language === 'hi' ? 'अपना मोबाइल नंबर दर्ज कर नया पासवर्ड बनाएं' : 'Reset password with OTP') :
+                 step3Mode === 'forgot_password' ? (language === 'hi' ? 'अपना मोबाइल नंबर दर्ज कर नया पासवर्ड बनाएं' : 'Enter phone & create a new password') :
                  t('step3SubLogin')}
               </p>
             </div>
-
-            {/* Sub-Tabs for Login / Password / OTP */}
-            {step3Mode !== 'register' && step3Mode !== 'forgot_password' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', background: 'var(--bg-subtle)', padding: '0.25rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
-                <button
-                  type="button"
-                  onClick={() => { setAuthError(''); setStep3Mode('login_password'); }}
-                  style={{
-                    padding: '0.5rem',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.82rem',
-                    fontWeight: '700',
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: step3Mode === 'login_password' ? '#ffffff' : 'transparent',
-                    color: step3Mode === 'login_password' ? 'var(--primary-forest)' : 'var(--text-muted)',
-                    boxShadow: step3Mode === 'login_password' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
-                  }}
-                >
-                  🔑 {t('loginWithPassword')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthError(''); setStep3Mode('login_otp'); }}
-                  style={{
-                    padding: '0.5rem',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.82rem',
-                    fontWeight: '700',
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: step3Mode === 'login_otp' ? '#ffffff' : 'transparent',
-                    color: step3Mode === 'login_otp' ? 'var(--primary-forest)' : 'var(--text-muted)',
-                    boxShadow: step3Mode === 'login_otp' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
-                  }}
-                >
-                  📱 {t('loginWithOtp')}
-                </button>
-              </div>
-            )}
 
             {/* Error Message */}
             {authError && (
@@ -647,15 +419,15 @@ export function OnboardingFlow() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }}>
-                  <span>{t('stepNext')}</span>
-                  <ArrowRight size={18} />
+                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
+                  <CheckCircle2 size={18} />
+                  <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : (language === 'hi' ? 'खाता बनाएं और ऐप खोलें' : 'Create Account & Enter App')}</span>
                 </button>
               </form>
             )}
 
             {/* 2. Password Login Form */}
-            {step3Mode === 'login_password' && (
+            {step3Mode === 'login' && (
               <form onSubmit={handlePasswordLoginSubmit}>
                 <div className="form-group">
                   <label className="form-label">{t('phoneLabel')} *</label>
@@ -704,16 +476,16 @@ export function OnboardingFlow() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }}>
-                  <span>{language === 'hi' ? 'लॉगिन करें' : 'Login'}</span>
+                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
+                  <span>{loading ? (language === 'hi' ? 'लॉगिन हो रहा है...' : 'Logging in...') : (language === 'hi' ? 'लॉगिन करें' : 'Login')}</span>
                   <ArrowRight size={18} />
                 </button>
               </form>
             )}
 
-            {/* 3. OTP Login Form */}
-            {step3Mode === 'login_otp' && (
-              <form onSubmit={handleOtpLoginRequest}>
+            {/* 3. Direct Forgot Password Form */}
+            {step3Mode === 'forgot_password' && (
+              <form onSubmit={handleResetPasswordSubmit}>
                 <div className="form-group">
                   <label className="form-label">{t('phoneLabel')} *</label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -730,88 +502,35 @@ export function OnboardingFlow() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }}>
-                  <Smartphone size={17} />
-                  <span>{t('sendOtp')}</span>
+                <div className="form-group">
+                  <label className="form-label">{t('newPasswordLabel')} *</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="••••••••"
+                    value={newResetPass}
+                    onChange={(e) => setNewResetPass(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('confirmPasswordLabel')} *</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="••••••••"
+                    value={confirmResetPass}
+                    onChange={(e) => setConfirmResetPass(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
+                  <CheckCircle2 size={17} />
+                  <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Resetting...') : t('resetPassword')}</span>
                 </button>
               </form>
-            )}
-
-            {/* 4. Forgot Password Flow */}
-            {step3Mode === 'forgot_password' && (
-              <div>
-                {!resetOtpSent ? (
-                  <form onSubmit={handleForgotOtpRequest}>
-                    <div className="form-group">
-                      <label className="form-label">{t('phoneLabel')} *</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <span className="phone-prefix-badge">+91</span>
-                        <input
-                          type="tel"
-                          className="form-input"
-                          placeholder={t('phonePlaceholder')}
-                          value={loginPhone}
-                          maxLength={10}
-                          onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, ''))}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }}>
-                      <KeyRound size={17} />
-                      <span>{t('sendOtp')}</span>
-                    </button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleResetPasswordFinal}>
-                    <div className="form-group">
-                      <label className="form-label">{language === 'hi' ? '6-अंकों का OTP कोड *' : '6-Digit Reset OTP *'}</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="form-input"
-                        style={{ textAlign: 'center', letterSpacing: '6px', fontSize: '1.25rem', fontWeight: '800' }}
-                        maxLength={6}
-                        placeholder="••••••"
-                        value={resetOtpCode}
-                        onChange={(e) => setResetOtpCode(e.target.value.replace(/\D/g, ''))}
-                        required
-                        autoFocus
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">{t('newPasswordLabel')} *</label>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="••••••••"
-                        value={newResetPass}
-                        onChange={(e) => setNewResetPass(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">{t('confirmPasswordLabel')} *</label>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="••••••••"
-                        value={confirmResetPass}
-                        onChange={(e) => setConfirmResetPass(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }}>
-                      <CheckCircle2 size={17} />
-                      <span>{t('resetPassword')}</span>
-                    </button>
-                  </form>
-                )}
-              </div>
             )}
 
             {/* Bottom Toggle Between Register and Login */}
@@ -819,7 +538,7 @@ export function OnboardingFlow() {
               {step3Mode === 'register' ? (
                 <button
                   type="button"
-                  onClick={() => { setAuthError(''); setStep3Mode('login_password'); }}
+                  onClick={() => { setAuthError(''); setStep3Mode('login'); }}
                   style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
                 >
                   {t('alreadyHaveAccount')}
@@ -833,94 +552,6 @@ export function OnboardingFlow() {
                   ← {t('dontHaveAccount')}
                 </button>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================
-            STEP 4: OTP VERIFICATION SCREEN (चौथा चरण: 6-Digit OTP)
-           ========================================================= */}
-        {onboardingStep === 4 && (
-          <div className="onboarding-step-content">
-            <button className="back-step-btn" onClick={() => setOnboardingStep(3)}>
-              <ArrowLeft size={16} />
-              <span>{t('stepBack')}</span>
-            </button>
-
-            <div style={{ textAlign: 'center', margin: '0.75rem 0 1.25rem' }}>
-              <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-full)', background: '#dcfce7', color: 'var(--primary-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-                <Smartphone size={28} />
-              </div>
-              <h2 className="step-main-title">{t('step4Title')}</h2>
-              <p className="step-sub-title">
-                {t('otpSentTo')} <strong>+91 {(formData.phone || loginPhone || '9876543210').replace(/\D/g, '').replace(/^91/, '')}</strong>
-              </p>
-            </div>
-
-            {/* Error Message Display inside Step 4 */}
-            {authError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '1.25rem' }}>
-                ⚠️ {authError}
-              </div>
-            )}
-
-            {authSuccess && (
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '1.25rem' }}>
-                ✅ {authSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleOtpSubmit}>
-              <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                  {language === 'hi' ? '6-अंकों का OTP कोड दर्ज करें' : 'Enter 6-Digit SMS OTP'}
-                </span>
-              </div>
-
-              {/* 6 Discrete Spaces / Boxes for OTP */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.75rem 0 1.5rem', flexWrap: 'nowrap' }}>
-                {otpDigits.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={(el) => (otpInputRefs.current[index] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    className={`otp-digit-input ${digit ? 'has-value' : ''}`}
-                    value={digit}
-                    onChange={(e) => handleDigitChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={handlePaste}
-                    placeholder="•"
-                    autoFocus={index === 0}
-                  />
-                ))}
-              </div>
-
-              <button type="submit" className="btn-primary" style={{ padding: '0.9rem' }} disabled={loading}>
-                <CheckCircle2 size={18} />
-                <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyAndProceed')}</span>
-              </button>
-            </form>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
-              <button
-                type="button"
-                onClick={() => setOnboardingStep(3)}
-                style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: '600' }}
-              >
-                ← {language === 'hi' ? 'नंबर बदलें' : 'Change Phone'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={loading}
-                style={{ fontSize: '0.82rem', color: 'var(--primary-forest)', fontWeight: '700' }}
-              >
-                🔄 {t('resendOtp')}
-              </button>
             </div>
           </div>
         )}

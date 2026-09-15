@@ -10,11 +10,10 @@ import {
   MapPin, 
   Eye, 
   EyeOff, 
-  Smartphone, 
   CheckCircle2, 
-  KeyRound, 
   ArrowRight, 
-  ShieldCheck
+  Tractor,
+  ShoppingBag
 } from 'lucide-react';
 
 export function AuthModal() {
@@ -22,21 +21,15 @@ export function AuthModal() {
     showAuthModal, 
     setShowAuthModal, 
     loginWithPassword,
-    requestLoginOtp,
-    verifyLoginOtp,
-    requestPasswordReset,
-    resetPasswordWithOtp,
+    resetPasswordDirect,
     registerNewUser,
-    isFirebaseConfigured,
-    sendFirebasePhoneOtp,
-    verifyFirebasePhoneOtp,
     role,
     t, 
     language 
   } = useApp();
 
-  // Mode: 'password_login' | 'otp_login' | 'forgot_password' | 'register'
-  const [authMode, setAuthMode] = useState('password_login');
+  // Mode: 'login' | 'register' | 'forgot_password'
+  const [authMode, setAuthMode] = useState('login');
   const [loading, setLoading] = useState(false);
 
   // Form Fields
@@ -46,11 +39,7 @@ export function AuthModal() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // OTP Fields (6 Digits)
-  const [otpSent, setOtpSent] = useState(false);
-  const [modalOtpDigits, setModalOtpDigits] = useState(['', '', '', '', '', '']);
-  const modalOtpRefs = React.useRef([]);
-  const [enteredOtp, setEnteredOtp] = useState('');
+  // Forgot Password Fields
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -70,9 +59,6 @@ export function AuthModal() {
   const resetState = () => {
     setErrorMessage('');
     setSuccessMessage('');
-    setOtpSent(false);
-    setModalOtpDigits(['', '', '', '', '', '']);
-    setEnteredOtp('');
     setNewPassword('');
     setConfirmPassword('');
   };
@@ -80,52 +66,6 @@ export function AuthModal() {
   const switchMode = (mode) => {
     resetState();
     setAuthMode(mode);
-  };
-
-  const handleModalDigitChange = (index, value) => {
-    const clean = value.replace(/\D/g, '');
-    const newDigits = [...modalOtpDigits];
-
-    if (clean.length > 1) {
-      const pastedChars = clean.slice(0, 6).split('');
-      for (let i = 0; i < 6; i++) {
-        newDigits[i] = pastedChars[i] || '';
-      }
-      setModalOtpDigits(newDigits);
-      setEnteredOtp(newDigits.join(''));
-      const nextIndex = Math.min(pastedChars.length, 5);
-      modalOtpRefs.current[nextIndex]?.focus();
-      return;
-    }
-
-    newDigits[index] = clean;
-    setModalOtpDigits(newDigits);
-    setEnteredOtp(newDigits.join(''));
-
-    if (clean && index < 5) {
-      modalOtpRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleModalKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !modalOtpDigits[index] && index > 0) {
-      modalOtpRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleModalPaste = (e) => {
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasteData) {
-      const newDigits = ['', '', '', '', '', ''];
-      for (let i = 0; i < pasteData.length; i++) {
-        newDigits[i] = pasteData[i];
-      }
-      setModalOtpDigits(newDigits);
-      setEnteredOtp(newDigits.join(''));
-      const focusIdx = Math.min(pasteData.length, 5);
-      modalOtpRefs.current[focusIdx]?.focus();
-    }
   };
 
   // 1. Handle Password Login
@@ -146,111 +86,17 @@ export function AuthModal() {
     setLoading(false);
     if (!res.success) {
       setErrorMessage(res.error);
-    }
-  };
-
-  // 2. Handle OTP Login - Step 1: Request OTP
-  const handleRequestOtp = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    if (!phone || phone.length < 10) {
-      setErrorMessage(language === 'hi' ? 'कृपया 10 अंकों का वैध मोबाइल नंबर दर्ज करें' : 'Please enter a valid 10-digit phone number');
-      return;
-    }
-
-    setLoading(true);
-    setModalOtpDigits(['', '', '', '', '', '']);
-    setEnteredOtp('');
-
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(phone);
-      setLoading(false);
-      setOtpSent(true);
-      if (res.success) {
-        setSuccessMessage(language === 'hi' ? 'आपके मोबाइल पर 6-अंकों का SMS OTP भेजा गया है' : '6-digit SMS OTP sent to your phone');
-      } else {
-        setErrorMessage(res.error || (language === 'hi' ? 'SMS भेजने में विफल' : 'Failed to send SMS OTP'));
-      }
     } else {
-      setLoading(false);
-      const res = requestLoginOtp(phone);
-      if (res.success) {
-        setOtpSent(true);
-        setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
-      } else {
-        setErrorMessage(res.error);
-      }
+      setShowAuthModal(false);
     }
   };
 
-  // Handle OTP Login - Step 2: Verify OTP
-  const handleVerifyOtpLogin = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    const code = modalOtpDigits.join('').trim() || enteredOtp.trim();
-
-    if (!code || code.length < 6) {
-      setErrorMessage(language === 'hi' ? 'कृपया पूरा 6 अंकों का OTP कोड दर्ज करें' : 'Please enter the full 6-digit OTP code');
-      return;
-    }
-    setLoading(true);
-
-    if (isFirebaseConfigured && window.confirmationResult) {
-      const res = await verifyFirebasePhoneOtp(code);
-      setLoading(false);
-      if (res.success) {
-        await verifyLoginOtp(phone, code);
-      } else {
-        setErrorMessage(res.error || (language === 'hi' ? 'अमान्य OTP कोड' : 'Invalid OTP code'));
-      }
-    } else {
-      setLoading(false);
-      const res = await verifyLoginOtp(phone, code);
-      if (!res.success) {
-        setErrorMessage(res.error);
-      }
-    }
-  };
-
-  // 3. Handle Forgot Password - Step 1: Send OTP
-  const handleForgotSendOtp = async (e) => {
+  // 2. Handle Forgot Password Reset
+  const handleResetPasswordSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     if (!phone || phone.length < 10) {
       setErrorMessage(language === 'hi' ? 'कृपया अपना 10 अंकों का मोबाइल नंबर दर्ज करें' : 'Please enter your registered 10-digit phone number');
-      return;
-    }
-
-    setLoading(true);
-    setModalOtpDigits(['', '', '', '', '', '']);
-    setEnteredOtp('');
-    if (isFirebaseConfigured) {
-      const res = await sendFirebasePhoneOtp(phone);
-      setLoading(false);
-      setOtpSent(true);
-      if (res.success) {
-        setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS sent');
-      } else {
-        setErrorMessage(res.error || (language === 'hi' ? 'SMS भेजने में विफल' : 'Failed to send SMS'));
-      }
-    } else {
-      setLoading(false);
-      const res = requestPasswordReset(phone);
-      if (res.success) {
-        setOtpSent(true);
-        setSuccessMessage(language === 'hi' ? 'सत्यापन SMS भेजा गया' : 'Verification SMS Sent');
-      } else {
-        setErrorMessage(res.error);
-      }
-    }
-  };
-
-  // Handle Forgot Password - Step 2: Set New Password
-  const handleResetPasswordSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    if (!enteredOtp || enteredOtp.length < 6) {
-      setErrorMessage(language === 'hi' ? 'कृपया 6 अंकों का OTP कोड दर्ज करें' : 'Please enter the 6-digit OTP code');
       return;
     }
     if (newPassword.length < 4) {
@@ -263,25 +109,17 @@ export function AuthModal() {
     }
 
     setLoading(true);
-    if (isFirebaseConfigured && window.confirmationResult) {
-      const res = await verifyFirebasePhoneOtp(enteredOtp);
-      setLoading(false);
-      if (res.success) {
-        await resetPasswordWithOtp(phone, enteredOtp, newPassword);
-      } else {
-        setErrorMessage(res.error || (language === 'hi' ? 'अमान्य OTP कोड' : 'Invalid OTP code'));
-      }
+    const res = await resetPasswordDirect(phone, newPassword);
+    setLoading(false);
+    if (!res.success) {
+      setErrorMessage(res.error || 'Failed to reset password');
     } else {
-      setLoading(false);
-      const res = await resetPasswordWithOtp(phone, enteredOtp, newPassword);
-      if (!res.success) {
-        setErrorMessage(res.error);
-      }
+      setShowAuthModal(false);
     }
   };
 
-  // 4. Handle Registration Submit
-  const handleRegisterSubmit = (e) => {
+  // 3. Handle Registration Submit
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     if (!regData.fullName.trim()) {
@@ -297,8 +135,14 @@ export function AuthModal() {
       return;
     }
 
-    registerNewUser(regData);
-    setShowAuthModal(false);
+    setLoading(true);
+    const res = registerNewUser(regData);
+    setLoading(false);
+    if (!res.success) {
+      setErrorMessage(res.error || 'Failed to register account');
+    } else {
+      setShowAuthModal(false);
+    }
   };
 
   return (
@@ -323,13 +167,13 @@ export function AuthModal() {
         </div>
 
         <div className="modal-body" style={{ padding: '1.25rem' }}>
-          {/* Top Mode Switcher Tabs for Login */}
-          {authMode !== 'register' && authMode !== 'forgot_password' && (
+          {/* Top Mode Switcher Tabs */}
+          {authMode !== 'forgot_password' && (
             <div className="auth-tab-bar" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', background: 'var(--bg-subtle)', padding: '0.3rem', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem' }}>
               <button
                 type="button"
-                className={`auth-tab-btn ${authMode === 'password_login' ? 'active' : ''}`}
-                onClick={() => switchMode('password_login')}
+                className={`auth-tab-btn ${authMode === 'login' ? 'active' : ''}`}
+                onClick={() => switchMode('login')}
                 style={{
                   padding: '0.55rem',
                   borderRadius: 'var(--radius-sm)',
@@ -337,17 +181,17 @@ export function AuthModal() {
                   fontWeight: '700',
                   border: 'none',
                   cursor: 'pointer',
-                  background: authMode === 'password_login' ? '#ffffff' : 'transparent',
-                  color: authMode === 'password_login' ? 'var(--primary-forest)' : 'var(--text-muted)',
-                  boxShadow: authMode === 'password_login' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                  background: authMode === 'login' ? '#ffffff' : 'transparent',
+                  color: authMode === 'login' ? 'var(--primary-forest)' : 'var(--text-muted)',
+                  boxShadow: authMode === 'login' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
                 }}
               >
-                🔑 {t('loginWithPassword')}
+                🔑 {language === 'hi' ? 'लॉगिन' : 'Login'}
               </button>
               <button
                 type="button"
-                className={`auth-tab-btn ${authMode === 'otp_login' ? 'active' : ''}`}
-                onClick={() => switchMode('otp_login')}
+                className={`auth-tab-btn ${authMode === 'register' ? 'active' : ''}`}
+                onClick={() => switchMode('register')}
                 style={{
                   padding: '0.55rem',
                   borderRadius: 'var(--radius-sm)',
@@ -355,12 +199,12 @@ export function AuthModal() {
                   fontWeight: '700',
                   border: 'none',
                   cursor: 'pointer',
-                  background: authMode === 'otp_login' ? '#ffffff' : 'transparent',
-                  color: authMode === 'otp_login' ? 'var(--primary-forest)' : 'var(--text-muted)',
-                  boxShadow: authMode === 'otp_login' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                  background: authMode === 'register' ? '#ffffff' : 'transparent',
+                  color: authMode === 'register' ? 'var(--primary-forest)' : 'var(--text-muted)',
+                  boxShadow: authMode === 'register' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
                 }}
               >
-                📱 {t('loginWithOtp')}
+                ✨ {language === 'hi' ? 'नया खाता बनाएं' : 'Sign Up'}
               </button>
             </div>
           )}
@@ -381,7 +225,7 @@ export function AuthModal() {
           {/* =========================================================
               VIEW 1: PASSWORD LOGIN
              ========================================================= */}
-          {authMode === 'password_login' && (
+          {authMode === 'login' && (
             <form onSubmit={handlePasswordLogin}>
               <div className="form-group">
                 <label className="form-label">{t('phoneLabel')} *</label>
@@ -430,8 +274,8 @@ export function AuthModal() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
-                <span>{language === 'hi' ? 'लॉगिन करें' : 'Login'}</span>
+              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
+                <span>{loading ? (language === 'hi' ? 'लॉगिन हो रहा है...' : 'Logging in...') : (language === 'hi' ? 'लॉगिन करें' : 'Login')}</span>
                 <ArrowRight size={17} />
               </button>
 
@@ -448,214 +292,78 @@ export function AuthModal() {
           )}
 
           {/* =========================================================
-              VIEW 2: OTP LOGIN
-             ========================================================= */}
-          {authMode === 'otp_login' && (
-            <div>
-              {!otpSent ? (
-                <form onSubmit={handleRequestOtp}>
-                  <div className="form-group">
-                    <label className="form-label">{t('phoneLabel')} *</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span className="phone-prefix-badge">+91</span>
-                      <input
-                        type="tel"
-                        className="form-input"
-                        placeholder={t('phonePlaceholder')}
-                        value={phone}
-                        maxLength={10}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
-                    <Smartphone size={17} />
-                    <span>{t('sendOtp')}</span>
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtpLogin}>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
-                    {t('otpSentTo')} <strong>+91 {(phone || '').replace(/\D/g, '').replace(/^91/, '')}</strong>
-                  </p>
-
-                  <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                      {language === 'hi' ? '6-अंकों का OTP कोड दर्ज करें' : 'Enter 6-Digit SMS OTP'}
-                    </span>
-                  </div>
-
-                  {/* 6 Discrete Spaces / Boxes for OTP */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.75rem 0 1.5rem', flexWrap: 'nowrap' }}>
-                    {modalOtpDigits.map((digit, index) => (
-                      <input
-                        key={index}
-                        ref={(el) => (modalOtpRefs.current[index] = el)}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={1}
-                        className={`otp-digit-input ${digit ? 'has-value' : ''}`}
-                        value={digit}
-                        onChange={(e) => handleModalDigitChange(index, e.target.value)}
-                        onKeyDown={(e) => handleModalKeyDown(index, e)}
-                        onPaste={handleModalPaste}
-                        placeholder="•"
-                        autoFocus={index === 0}
-                      />
-                    ))}
-                  </div>
-
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
-                    <CheckCircle2 size={17} />
-                    <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyAndProceed')}</span>
-                  </button>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setOtpSent(false)}
-                      style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}
-                    >
-                      ← {language === 'hi' ? 'नंबर बदलें' : 'Change Phone'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRequestOtp}
-                      disabled={loading}
-                      style={{ fontSize: '0.8rem', color: 'var(--primary-forest)', fontWeight: '700' }}
-                    >
-                      {t('resendOtp')}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
-                >
-                  {t('dontHaveAccount')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================
-              VIEW 3: FORGOT PASSWORD & OTP RESET
+              VIEW 2: DIRECT FORGOT PASSWORD RESET
              ========================================================= */}
           {authMode === 'forgot_password' && (
-            <div>
+            <form onSubmit={handleResetPasswordSubmit}>
               <div style={{ marginBottom: '1rem' }}>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                   {t('resetPassword')}
                 </h4>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {language === 'hi' ? 'अपना पंजीकृत मोबाइल नंबर दर्ज करें और OTP से नया पासवर्ड बनाएं।' : 'Enter registered phone to verify via OTP and create a new password.'}
+                  {language === 'hi' ? 'अपना मोबाइल नंबर दर्ज करें और नया पासवर्ड सेट करें।' : 'Enter your mobile number and set a new password.'}
                 </p>
               </div>
 
-              {!otpSent ? (
-                <form onSubmit={handleForgotSendOtp}>
-                  <div className="form-group">
-                    <label className="form-label">{t('phoneLabel')} *</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span className="phone-prefix-badge">+91</span>
-                      <input
-                        type="tel"
-                        className="form-input"
-                        placeholder={t('phonePlaceholder')}
-                        value={phone}
-                        maxLength={10}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                        required
-                      />
-                    </div>
-                  </div>
+              <div className="form-group">
+                <label className="form-label">{t('phoneLabel')} *</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <span className="phone-prefix-badge">+91</span>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder={t('phonePlaceholder')}
+                    value={phone}
+                    maxLength={10}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    required
+                  />
+                </div>
+              </div>
 
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
-                    <KeyRound size={16} />
-                    <span>{loading ? (language === 'hi' ? 'OTP भेजा जा रहा है...' : 'Sending...') : t('sendOtp')}</span>
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleResetPasswordSubmit}>
-                  <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                      {language === 'hi' ? '6-अंकों का OTP कोड दर्ज करें' : 'Enter 6-Digit SMS OTP'}
-                    </span>
-                  </div>
+              <div className="form-group">
+                <label className="form-label">{t('newPasswordLabel')} *</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-                  {/* 6 Discrete Spaces / Boxes for OTP */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.75rem 0 1.25rem', flexWrap: 'nowrap' }}>
-                    {modalOtpDigits.map((digit, index) => (
-                      <input
-                        key={index}
-                        ref={(el) => (modalOtpRefs.current[index] = el)}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={1}
-                        className={`otp-digit-input ${digit ? 'has-value' : ''}`}
-                        value={digit}
-                        onChange={(e) => handleModalDigitChange(index, e.target.value)}
-                        onKeyDown={(e) => handleModalKeyDown(index, e)}
-                        onPaste={handleModalPaste}
-                        placeholder="•"
-                        autoFocus={index === 0}
-                      />
-                    ))}
-                  </div>
+              <div className="form-group">
+                <label className="form-label">{t('confirmPasswordLabel')} *</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-                  <div className="form-group">
-                    <label className="form-label">{t('newPasswordLabel')} *</label>
-                    <input
-                      type="password"
-                      className="form-input"
-                      placeholder="••••••••"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">{t('confirmPasswordLabel')} *</label>
-                    <input
-                      type="password"
-                      className="form-input"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
-                    <CheckCircle2 size={17} />
-                    <span>{t('resetPassword')}</span>
-                  </button>
-                </form>
-              )}
+              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
+                <CheckCircle2 size={17} />
+                <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Resetting...') : t('resetPassword')}</span>
+              </button>
 
               <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
                 <button
                   type="button"
-                  onClick={() => switchMode('password_login')}
+                  onClick={() => switchMode('login')}
                   style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
                 >
                   ← {t('alreadyHaveAccount')}
                 </button>
               </div>
-            </div>
+            </form>
           )}
 
           {/* =========================================================
-              VIEW 4: CREATE NEW ACCOUNT
+              VIEW 3: CREATE NEW ACCOUNT (DIRECT)
              ========================================================= */}
           {authMode === 'register' && (
             <form onSubmit={handleRegisterSubmit}>
@@ -671,6 +379,54 @@ export function AuthModal() {
                     onChange={(e) => setRegData({ ...regData, fullName: e.target.value })}
                     required
                   />
+                </div>
+              </div>
+
+              {/* Role Selection */}
+              <div className="form-group">
+                <label className="form-label">{language === 'hi' ? 'आप क्या हैं?' : 'Account Type'} *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRegData({ ...regData, role: 'buyer' })}
+                    style={{
+                      padding: '0.6rem 0.5rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      border: regData.role === 'buyer' ? '2px solid var(--accent-gold)' : '1px solid var(--card-border)',
+                      background: regData.role === 'buyer' ? '#fef3c7' : 'var(--bg-subtle)',
+                      color: regData.role === 'buyer' ? '#92400e' : 'var(--text-muted)'
+                    }}
+                  >
+                    <ShoppingBag size={15} />
+                    <span>{t('buyerBadge')}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRegData({ ...regData, role: 'producer' })}
+                    style={{
+                      padding: '0.6rem 0.5rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                      fontWeight: '800',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      border: regData.role === 'producer' ? '2px solid var(--primary-forest)' : '1px solid var(--card-border)',
+                      background: regData.role === 'producer' ? '#dcfce7' : 'var(--bg-subtle)',
+                      color: regData.role === 'producer' ? 'var(--primary-forest)' : 'var(--text-muted)'
+                    }}
+                  >
+                    <Tractor size={15} />
+                    <span>{t('producerBadge')}</span>
+                  </button>
                 </div>
               </div>
 
@@ -753,15 +509,15 @@ export function AuthModal() {
                 </div>
               </div>
 
-              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }}>
+              <button type="submit" className="btn-primary" style={{ marginTop: '0.85rem' }} disabled={loading}>
                 <CheckCircle2 size={17} />
-                <span>{t('step3TitleRegister')}</span>
+                <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : t('step3TitleRegister')}</span>
               </button>
 
               <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
                 <button
                   type="button"
-                  onClick={() => switchMode('password_login')}
+                  onClick={() => switchMode('login')}
                   style={{ fontSize: '0.85rem', color: 'var(--primary-forest)', fontWeight: '700' }}
                 >
                   {t('alreadyHaveAccount')}
