@@ -45,20 +45,45 @@ export function SellerDashboard() {
     language 
   } = useApp();
 
+  const currentSellerPhone = currentUser?.phone ? String(currentUser.phone).replace(/\D/g, '') : '';
+  const currentSellerPhone10 = currentSellerPhone.length >= 10 ? currentSellerPhone.slice(-10) : currentSellerPhone;
+
   // Filter products by current seller (Real farmer listings only)
-  const myProducts = products.filter(
-    (p) => p && !['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id) && (currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : false)
-  );
+  const myProducts = products.filter((p) => {
+    if (!p || ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id)) return false;
+    if (!currentUser) return false;
+    if (p.sellerId && p.sellerId === currentUser.id) return true;
+    if (currentSellerPhone10) {
+      const pPhone = p.sellerPhone ? String(p.sellerPhone).replace(/\D/g, '') : '';
+      const pPhone10 = pPhone.length >= 10 ? pPhone.slice(-10) : pPhone;
+      if (pPhone10 && pPhone10 === currentSellerPhone10) return true;
+    }
+    return false;
+  });
 
   // Filter chats by current seller
-  const myChats = (chats || []).filter(
-    (c) => currentUser ? (c.sellerId === currentUser.id || c.sellerPhone === currentUser.phone) : c.sellerId === 'farmer-ramesh'
-  );
+  const myChats = (chats || []).filter((c) => {
+    if (!currentUser) return c.sellerId === 'farmer-ramesh';
+    if (c.sellerId && c.sellerId === currentUser.id) return true;
+    if (currentSellerPhone10) {
+      const cPhone = c.sellerPhone ? String(c.sellerPhone).replace(/\D/g, '') : '';
+      const cPhone10 = cPhone.length >= 10 ? cPhone.slice(-10) : cPhone;
+      if (cPhone10 && cPhone10 === currentSellerPhone10) return true;
+    }
+    return false;
+  });
 
   // Filter inquiries / WhatsApp leads by current seller
-  const myInquiries = (inquiries || []).filter(
-    (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
-  );
+  const myInquiries = (inquiries || []).filter((inq) => {
+    if (!currentUser) return inq.sellerId === 'farmer-ramesh';
+    if (inq.sellerId && inq.sellerId === currentUser.id) return true;
+    if (currentSellerPhone10) {
+      const inqPhone = inq.sellerPhone ? String(inq.sellerPhone).replace(/\D/g, '') : '';
+      const inqPhone10 = inqPhone.length >= 10 ? inqPhone.slice(-10) : inqPhone;
+      if (inqPhone10 && inqPhone10 === currentSellerPhone10) return true;
+    }
+    return false;
+  });
 
   const unreadInquiries = myInquiries.filter((inq) => !(readInquiryIds || []).includes(inq.id));
   const unreadChatsCount = myChats.reduce((sum, c) => sum + (c.unreadCountFarmer || 0), 0);

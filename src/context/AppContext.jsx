@@ -268,6 +268,77 @@ export function AppProvider({ children }) {
         setProducts((prev) =>
           (prev || []).map((p) => (p.id === payload.productId ? { ...p, ...payload.updates } : p))
         );
+      } else if (action === 'CREATE_CHAT' && payload && payload.id) {
+        setChats((prev) => {
+          if ((prev || []).some((c) => c.id === payload.id)) {
+            return prev.map((c) => (c.id === payload.id ? { ...c, ...payload } : c));
+          }
+          return [payload, ...(prev || [])];
+        });
+      } else if (action === 'SEND_MESSAGE' && payload && payload.chatId && payload.message) {
+        const { chatId, message, chatContext } = payload;
+        const isBuyerMsg = message.senderRole === 'buyer';
+        setChats((prev) => {
+          const chatIndex = (prev || []).findIndex((c) => c.id === chatId);
+          if (chatIndex >= 0) {
+            const currentChat = prev[chatIndex];
+            const isMsgAlready = (currentChat.messages || []).some((m) => m.id === message.id);
+            const updatedMessages = isMsgAlready ? currentChat.messages : [...(currentChat.messages || []), message];
+            const updatedChat = {
+              ...currentChat,
+              ...(chatContext || {}),
+              lastMessage: message.text,
+              lastMessageTime: message.time || currentChat.lastMessageTime,
+              unreadCountFarmer: isBuyerMsg ? (Number(currentChat.unreadCountFarmer || 0) + 1) : currentChat.unreadCountFarmer,
+              unreadCountBuyer: !isBuyerMsg ? (Number(currentChat.unreadCountBuyer || 0) + 1) : currentChat.unreadCountBuyer,
+              messages: updatedMessages
+            };
+            const copy = [...prev];
+            copy[chatIndex] = updatedChat;
+            return copy;
+          } else if (chatContext) {
+            return [{
+              ...chatContext,
+              lastMessage: message.text,
+              lastMessageTime: message.time,
+              unreadCountFarmer: isBuyerMsg ? 1 : 0,
+              unreadCountBuyer: !isBuyerMsg ? 1 : 0,
+              messages: [message]
+            }, ...(prev || [])];
+          }
+          return prev;
+        });
+        setActiveChat((curr) => {
+          if (!curr || curr.id !== chatId) return curr;
+          const isMsgAlready = (curr.messages || []).some((m) => m.id === message.id);
+          return {
+            ...curr,
+            lastMessage: message.text,
+            lastMessageTime: message.time || curr.lastMessageTime,
+            messages: isMsgAlready ? curr.messages : [...(curr.messages || []), message]
+          };
+        });
+      } else if (action === 'MARK_CHAT_READ' && payload && payload.chatId) {
+        const { chatId, role: readerRole } = payload;
+        const isFarmer = readerRole === 'producer';
+        setChats((prev) =>
+          (prev || []).map((c) => {
+            if (c.id !== chatId) return c;
+            return {
+              ...c,
+              unreadCountFarmer: isFarmer ? 0 : c.unreadCountFarmer,
+              unreadCountBuyer: !isFarmer ? 0 : c.unreadCountBuyer
+            };
+          })
+        );
+        setActiveChat((curr) => {
+          if (!curr || curr.id !== chatId) return curr;
+          return {
+            ...curr,
+            unreadCountFarmer: isFarmer ? 0 : curr.unreadCountFarmer,
+            unreadCountBuyer: !isFarmer ? 0 : curr.unreadCountBuyer
+          };
+        });
       }
     };
 
@@ -277,10 +348,23 @@ export function AppProvider({ children }) {
 
     // 4. Live User Chats Subscription
     if (isFirebaseConfigured && (currentUser?.id || currentUser?.phone)) {
-      const uId = currentUser.id || currentUser.phone;
-      unsubscribeChats = subscribeToUserChats(uId, role || 'buyer', (cloudChats) => {
-        if (cloudChats && cloudChats.length > 0) {
-          setChats(cloudChats);
+      unsubscribeChats = subscribeToUserChats(currentUser, role || 'buyer', (cloudChats) => {
+        if (cloudChats && Array.isArray(cloudChats)) {
+          setChats((prev) => {
+            const map = new Map();
+            (prev || []).forEach((c) => map.set(c.id, c));
+            cloudChats.forEach((c) => map.set(c.id, c));
+            return Array.from(map.values()).sort((a, b) => {
+              const timeA = a.lastMessageTimestamp?.seconds ? a.lastMessageTimestamp.seconds * 1000 : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+              const timeB = b.lastMessageTimestamp?.seconds ? b.lastMessageTimestamp.seconds * 1000 : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+              return timeB - timeA;
+            });
+          });
+          setActiveChat((currActive) => {
+            if (!currActive) return currActive;
+            const updated = cloudChats.find((c) => c.id === currActive.id);
+            return updated || currActive;
+          });
         }
       });
     }
@@ -300,6 +384,16 @@ export function AppProvider({ children }) {
           }
         } catch (err) {
           console.warn("Storage sync error:", err);
+        }
+      }
+      if (e.key === 'freshfetch_chats' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setChats(parsed);
+          }
+        } catch (err) {
+          console.warn("Storage sync error for chats:", err);
         }
       }
     };
@@ -709,13 +803,22 @@ export function AppProvider({ children }) {
     const isWhatsAppOn = product.showWhatsApp !== false && (!sellerUser || sellerUser.showWhatsApp !== false);
     const isPhoneOn = product.showPhone !== false && (!sellerUser || sellerUser.showPhone !== false);
 
+    const buyerId = currentUser?.id || (currentUser?.phone ? `buyer-${currentUser.phone}` : `guest-${Date.now()}`);
+    const buyerPhone = currentUser?.phone || '';
+    const buyerName = currentUser?.name || (role === 'producer' ? 'Farmer' : 'Customer');
+
     // Check if chat thread already exists for this product
     const existingChat = chats.find(
-      (c) => c.productId === product.id && (c.buyerId === currentUser?.id || c.buyerPhone === currentUser?.phone)
-    ) || chats.find((c) => c.productId === product.id);
+      (c) => c.productId === product.id && ((currentUser && c.buyerId === currentUser.id) || (currentUser?.phone && c.buyerPhone === currentUser.phone))
+    ) || chats.find((c) => c.productId === product.id && c.buyerPhone === buyerPhone);
 
     if (existingChat) {
-      const isFarmer = role === 'producer';
+      const isFarmer = role === 'producer' || Boolean(
+        currentUser && (
+          (existingChat.sellerId && existingChat.sellerId === currentUser.id) ||
+          (existingChat.sellerPhone && existingChat.sellerPhone === currentUser.phone)
+        )
+      );
       const updatedChat = {
         ...existingChat,
         unreadCountFarmer: isFarmer ? 0 : existingChat.unreadCountFarmer,
@@ -732,9 +835,9 @@ export function AppProvider({ children }) {
       return;
     }
 
-    // Create new chat thread
+    // Create fresh genuine chat thread (starts clean with no fake messages)
     const newChat = {
-      id: `chat-${Date.now()}`,
+      id: `chat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       productId: product.id,
       productTitle: product.title,
       productPrice: product.price,
@@ -747,23 +850,14 @@ export function AppProvider({ children }) {
       showWhatsApp: isWhatsAppOn,
       showPhone: isPhoneOn,
       sellerLocation: product.sellerLocation,
-      buyerId: currentUser?.id || 'guest-buyer',
-      buyerName: currentUser?.name || 'Buyer',
-      buyerPhone: currentUser?.phone || '9876543210',
-      unreadCountFarmer: 1,
+      buyerId,
+      buyerName,
+      buyerPhone,
+      unreadCountFarmer: 0,
       unreadCountBuyer: 0,
-      lastMessage: `Inquiry for ${product.title}`,
-      lastMessageTime: 'Just now',
-      messages: [
-        {
-          id: `msg-${Date.now()}-0`,
-          senderRole: 'producer',
-          senderName: (product.sellerName || 'Farmer').split('(')[0].trim(),
-          text: `Namaste! I am ${(product.sellerName || 'Farmer').split('(')[0].trim()} from ${product.sellerLocation || 'Hanumangarh'}. How can I help you with this fresh batch of ${(product.title || 'Produce').split('(')[0].trim()}?`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read'
-        }
-      ]
+      lastMessage: '',
+      lastMessageTime: '',
+      messages: []
     };
 
     setChats((prev) => [newChat, ...prev]);
@@ -777,7 +871,12 @@ export function AppProvider({ children }) {
   const openChatById = (chatId) => {
     const chat = chats.find((c) => c.id === chatId);
     if (chat) {
-      const isFarmer = role === 'producer' || (currentUser && (chat.sellerId === currentUser.id || chat.sellerPhone === currentUser.phone));
+      const isFarmer = role === 'producer' || Boolean(
+        currentUser && (
+          (chat.sellerId && chat.sellerId === currentUser.id) ||
+          (chat.sellerPhone && chat.sellerPhone === currentUser.phone)
+        )
+      );
       const updatedChat = {
         ...chat,
         unreadCountFarmer: isFarmer ? 0 : chat.unreadCountFarmer,
@@ -790,29 +889,45 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Send a message inside chat thread
+  // Send a genuine message inside chat thread (No fake auto-replies)
   const sendMessage = (chatId, text, senderRole = (role || 'buyer')) => {
-    if (!text || !text.trim()) return;
+    if (!text || !text.trim() || !chatId) return;
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isFarmer = senderRole === 'producer' || Boolean(
+      currentUser && (
+        (activeChat?.sellerId && activeChat.sellerId === currentUser.id) ||
+        (activeChat?.sellerPhone && activeChat.sellerPhone === currentUser.phone)
+      )
+    );
+    const effectiveSenderRole = isFarmer ? 'producer' : 'buyer';
+    const senderName = currentUser?.name || (effectiveSenderRole === 'producer' ? (activeChat?.sellerName?.split('(')[0]?.trim() || 'Farmer') : 'Customer');
+
     const newMsg = {
-      id: `msg-${Date.now()}`,
-      senderRole,
-      senderName: currentUser?.name || (senderRole === 'producer' ? 'Farmer' : 'Buyer'),
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      senderRole: effectiveSenderRole,
+      senderName,
       text: text.trim(),
       time: timeStr,
       status: 'sent'
     };
 
+    let targetChat = null;
+
     setChats((prev) =>
       prev.map((c) => {
         if (c.id !== chatId) return c;
-        return {
+        const isBuyerMsg = effectiveSenderRole === 'buyer';
+        const updated = {
           ...c,
           lastMessage: text.trim(),
           lastMessageTime: timeStr,
-          messages: [...c.messages, newMsg]
+          unreadCountFarmer: isBuyerMsg ? (Number(c.unreadCountFarmer || 0) + 1) : c.unreadCountFarmer,
+          unreadCountBuyer: !isBuyerMsg ? (Number(c.unreadCountBuyer || 0) + 1) : c.unreadCountBuyer,
+          messages: [...(c.messages || []), newMsg]
         };
+        targetChat = updated;
+        return updated;
       })
     );
 
@@ -822,57 +937,13 @@ export function AppProvider({ children }) {
         ...prev,
         lastMessage: text.trim(),
         lastMessageTime: timeStr,
-        messages: [...prev.messages, newMsg]
+        messages: [...(prev.messages || []), newMsg]
       };
     });
 
     // Send to Cloud Firestore for real-time multi-device sync
-    sendChatMessageToCloud(chatId, newMsg);
-
-    // Auto-reply simulation from Farmer if buyer sent a message
-    if (senderRole === 'buyer') {
-      setTimeout(() => {
-        const autoReplies = [
-          'Ji bilkul! Fresh batch kal hi pack kiya hai. Hanumanhargh / Ganganagar me delivery available hai.',
-          'Ram Ram ji! Hum bina kisi chemical ke banate hain. Aap kitna quantity lena chahte hain?',
-          'Haan ji, rate bilkul genuine hai. Aap cash on delivery ya UPI se payment kar sakte hain.',
-          'Namaste! Pure traditional method se banta hai. Aapko fresh batch deliver karwayenge.'
-        ];
-        const replyText = autoReplies[Math.floor(Math.random() * autoReplies.length)];
-        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const farmerReplyMsg = {
-          id: `msg-${Date.now()}-reply`,
-          senderRole: 'producer',
-          senderName: activeChat?.sellerName?.split('(')[0]?.trim() || 'Farmer Producer',
-          text: replyText,
-          time: replyTime,
-          status: 'read'
-        };
-
-        setChats((prevChats) =>
-          prevChats.map((c) => {
-            if (c.id !== chatId) return c;
-            return {
-              ...c,
-              lastMessage: replyText,
-              lastMessageTime: replyTime,
-              messages: [...c.messages, farmerReplyMsg]
-            };
-          })
-        );
-
-        setActiveChat((prev) => {
-          if (!prev || prev.id !== chatId) return prev;
-          return {
-            ...prev,
-            lastMessage: replyText,
-            lastMessageTime: replyTime,
-            messages: [...prev.messages, farmerReplyMsg]
-          };
-        });
-      }, 1200);
-    }
+    const chatContext = targetChat || activeChat;
+    sendChatMessageToCloud(chatId, newMsg, chatContext);
   };
 
   // Product Management Functions

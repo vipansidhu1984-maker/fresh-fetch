@@ -377,25 +377,53 @@ export async function updateProductInCloud(productId, updates) {
 // ============================================================================
 
 /**
- * Subscribe to all chat threads where current user is buyer or seller
+ * Subscribe to all chat threads for the active user (by user ID or phone number)
  */
-export function subscribeToUserChats(userId, userRole, onUpdate) {
-  if (!isFirebaseConfigured || !db || !userId) return () => {};
+export function subscribeToUserChats(user, userRole, onUpdate) {
+  if (!isFirebaseConfigured || !db || !user) return () => {};
 
   try {
-    const field = userRole === 'producer' ? 'sellerId' : 'buyerId';
-    const q = query(
-      collection(db, 'chats'),
-      where(field, '==', userId),
-      orderBy('lastMessageTimestamp', 'desc')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const chats = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+    const colRef = collection(db, 'chats');
+    return onSnapshot(colRef, (snapshot) => {
+      const allChats = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
       }));
-      onUpdate(chats);
+
+      const uId = typeof user === 'string' ? user : (user.id || user.phone);
+      const rawPhone = typeof user === 'object' && user.phone ? user.phone : (typeof user === 'string' ? user : null);
+      const cleanPhone = rawPhone ? String(rawPhone).replace(/\D/g, '') : null;
+      const uPhone10 = cleanPhone && cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+
+      const myChats = allChats.filter((c) => {
+        if (!c) return false;
+        const sPhoneRaw = c.sellerPhone || c.sellerWhatsApp;
+        const sClean = sPhoneRaw ? String(sPhoneRaw).replace(/\D/g, '') : null;
+        const sPhone10 = sClean && sClean.length >= 10 ? sClean.slice(-10) : sClean;
+
+        const bPhoneRaw = c.buyerPhone;
+        const bClean = bPhoneRaw ? String(bPhoneRaw).replace(/\D/g, '') : null;
+        const bPhone10 = bClean && bClean.length >= 10 ? bClean.slice(-10) : bClean;
+
+        const isSeller = Boolean(
+          (uId && (c.sellerId === uId || c.sellerPhone === uId)) ||
+          (uPhone10 && sPhone10 && (uPhone10 === sPhone10 || uPhone10.endsWith(sPhone10) || sPhone10.endsWith(uPhone10)))
+        );
+        const isBuyer = Boolean(
+          (uId && (c.buyerId === uId || c.buyerPhone === uId)) ||
+          (uPhone10 && bPhone10 && (uPhone10 === bPhone10 || uPhone10.endsWith(bPhone10) || bPhone10.endsWith(uPhone10)))
+        );
+        return isSeller || isBuyer;
+      });
+
+      // Sort newest message first
+      myChats.sort((a, b) => {
+        const timeA = a.lastMessageTimestamp?.seconds ? a.lastMessageTimestamp.seconds * 1000 : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+        const timeB = b.lastMessageTimestamp?.seconds ? b.lastMessageTimestamp.seconds * 1000 : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+        return timeB - timeA;
+      });
+
+      onUpdate(myChats);
     }, (err) => {
       console.warn("Chats subscription listener warning:", err);
     });
@@ -406,118 +434,104 @@ export function subscribeToUserChats(userId, userRole, onUpdate) {
 }
 
 /**
- * Real-time listener for messages in a specific chat
+ * Send a message inside a chat channel (Cloud Firestore + BroadcastChannel)
  */
-export function subscribeToChatMessages(chatId, onUpdate) {
-  if (!isFirebaseConfigured || !db || !chatId) return () => {};
+export async function sendChatMessageToCloud(chatId, message, chatContext = null) {
+  if (!chatId || !message) return { success: false, offline: true };
 
-  try {
-    const q = query(
-      collection(db, 'chats', chatId, 'messages'),
-      orderBy('timestamp', 'asc')
-    );
+  // 1. Broadcast immediately to all open local tabs/windows
+  broadcastSync('SEND_MESSAGE', { chatId, message, chatContext });
 
-    return onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      onUpdate(messages);
-    }, (err) => {
-      console.warn("Messages subscription listener warning:", err);
-    });
-  } catch (err) {
-    console.warn("Failed to subscribe to chat messages:", err);
-    return () => {};
-  }
-}
+  // 2. Save directly to Cloud Firestore
+  if (isFirebaseConfigured && db) {
+    try {
+      const chatDoc = doc(db, 'chats', chatId);
+      const snap = await getDoc(chatDoc);
+      const existingData = snap.exists() ? snap.data() : (chatContext || {});
+      const existingMessages = Array.isArray(existingData.messages) ? existingData.messages : [];
+      
+      const sanitizedMsg = sanitizeForFirestore(message);
+      const updatedMessages = [...existingMessages.filter((m) => m && m.id !== message.id), sanitizedMsg];
+      
+      const isBuyer = message.senderRole === 'buyer';
+      const baseContext = chatContext || (snap.exists() ? snap.data() : {});
+      const updateData = {
+        ...sanitizeForFirestore(baseContext),
+        lastMessage: message.text,
+        lastMessageTime: message.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        lastMessageTimestamp: serverTimestamp(),
+        messages: updatedMessages,
+        unreadCountFarmer: isBuyer ? (Number(existingData.unreadCountFarmer || 0) + 1) : 0,
+        unreadCountBuyer: !isBuyer ? (Number(existingData.unreadCountBuyer || 0) + 1) : 0,
+        updatedAt: serverTimestamp()
+      };
 
-/**
- * Send a message inside a chat channel
- */
-export async function sendChatMessageToCloud(chatId, message) {
-  if (!isFirebaseConfigured || !db || !chatId) return { success: false, offline: true };
-
-  try {
-    // 1. Add message to subcollection
-    const messagesCol = collection(db, 'chats', chatId, 'messages');
-    await addDoc(messagesCol, {
-      ...message,
-      timestamp: serverTimestamp(),
-      createdAtIso: new Date().toISOString()
-    });
-
-    // 2. Update parent chat doc
-    const chatDoc = doc(db, 'chats', chatId);
-    const updateData = {
-      lastMessage: message.text,
-      lastMessageTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      lastMessageTimestamp: serverTimestamp()
-    };
-
-    if (message.senderRole === 'buyer') {
-      updateData.unreadCountFarmer = 1;
-    } else {
-      updateData.unreadCountBuyer = 1;
+      await setDoc(chatDoc, updateData, { merge: true });
+      return { success: true };
+    } catch (err) {
+      console.error("Error sending message to Firestore:", err);
+      return { success: false, error: err.message };
     }
-
-    await updateDoc(chatDoc, updateData);
-    return { success: true };
-  } catch (err) {
-    console.error("Error sending message to Firestore:", err);
-    return { success: false, error: err.message };
   }
+
+  return { success: true };
 }
 
 /**
- * Create a new chat thread in Firestore
+ * Create a new chat thread in Firestore and broadcast
  */
 export async function createChatInCloud(chatData) {
-  if (!isFirebaseConfigured || !db) return { success: false, offline: true };
+  if (!chatData || !chatData.id) return { success: false, offline: true };
 
-  try {
-    const chatDoc = doc(db, 'chats', chatData.id);
-    await setDoc(chatDoc, {
-      ...chatData,
-      lastMessageTimestamp: serverTimestamp(),
-      createdAt: serverTimestamp()
-    }, { merge: true });
+  // 1. Broadcast to all open tabs
+  broadcastSync('CREATE_CHAT', chatData);
 
-    // Add initial greeting message if present
-    if (chatData.messages && chatData.messages.length > 0) {
-      const initialMsg = chatData.messages[0];
-      const messagesCol = collection(db, 'chats', chatData.id, 'messages');
-      await addDoc(messagesCol, {
-        ...initialMsg,
-        timestamp: serverTimestamp(),
-        createdAtIso: new Date().toISOString()
-      });
+  // 2. Save to Firestore
+  if (isFirebaseConfigured && db) {
+    try {
+      const sanitized = sanitizeForFirestore(chatData);
+      const chatDoc = doc(db, 'chats', chatData.id);
+      await setDoc(chatDoc, {
+        ...sanitized,
+        lastMessageTimestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      return { success: true };
+    } catch (err) {
+      console.error("Error creating chat in Firestore:", err);
+      return { success: false, error: err.message };
     }
-
-    return { success: true };
-  } catch (err) {
-    console.error("Error creating chat in Firestore:", err);
-    return { success: false, error: err.message };
   }
+
+  return { success: true };
 }
 
 /**
  * Mark a chat thread as read in Firestore
  */
 export async function markChatReadInCloud(chatId, role = 'producer') {
-  if (!isFirebaseConfigured || !db || !chatId) return { success: false, offline: true };
+  if (!chatId) return { success: false, offline: true };
 
-  try {
-    const chatDoc = doc(db, 'chats', chatId);
-    const updateData = role === 'producer'
-      ? { unreadCountFarmer: 0 }
-      : { unreadCountBuyer: 0 };
-    await updateDoc(chatDoc, updateData);
-    return { success: true };
-  } catch (err) {
-    console.error("Error marking chat read in Firestore:", err);
-    return { success: false, error: err.message };
+  // Broadcast read status
+  broadcastSync('MARK_CHAT_READ', { chatId, role });
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const chatDoc = doc(db, 'chats', chatId);
+      const updateData = role === 'producer'
+        ? { unreadCountFarmer: 0 }
+        : { unreadCountBuyer: 0 };
+      await updateDoc(chatDoc, updateData);
+      return { success: true };
+    } catch (err) {
+      console.warn("Error marking chat read in Firestore:", err?.message || err);
+      return { success: false, error: err.message };
+    }
   }
+
+  return { success: true };
 }
 
 // ============================================================================

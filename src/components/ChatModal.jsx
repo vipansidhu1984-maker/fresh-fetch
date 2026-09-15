@@ -12,7 +12,8 @@ import {
   ShoppingBag,
   ExternalLink,
   MapPin,
-  ArrowRight
+  ArrowRight,
+  UserCheck
 } from 'lucide-react';
 
 export function ChatModal() {
@@ -44,6 +45,14 @@ export function ChatModal() {
 
   if (!showChatModal || !activeChat) return null;
 
+  // Determine if the current active user is the farmer/seller or the customer
+  const isFarmer = role === 'producer' || Boolean(
+    currentUser && (
+      (activeChat.sellerId && activeChat.sellerId === currentUser.id) ||
+      (activeChat.sellerPhone && activeChat.sellerPhone === currentUser.phone)
+    )
+  );
+
   // Resolve dynamic seller privacy settings
   const sellerUser = (registeredUsers || []).find(
     (u) =>
@@ -61,23 +70,38 @@ export function ChatModal() {
     (!sellerUser || sellerUser.showPhone !== false) &&
     Boolean(activeChat.sellerPhone);
 
+  const counterpartName = isFarmer
+    ? (activeChat.buyerName || 'Customer')
+    : (activeChat.sellerName?.split('(')[0]?.trim() || 'Farmer');
+
+  const counterpartSubtitle = isFarmer
+    ? (activeChat.buyerPhone ? `Customer • ${activeChat.buyerPhone}` : 'Verified Buyer')
+    : (activeChat.sellerLocation || 'Hanumangarh');
+
   const handleSend = (e) => {
     e?.preventDefault();
     if (!inputText.trim()) return;
-    sendMessage(activeChat.id, inputText.trim(), role || 'buyer');
+    sendMessage(activeChat.id, inputText.trim(), isFarmer ? 'producer' : 'buyer');
     setInputText('');
   };
 
   const handleChipClick = (questionText) => {
-    sendMessage(activeChat.id, questionText, role || 'buyer');
+    sendMessage(activeChat.id, questionText, isFarmer ? 'producer' : 'buyer');
   };
 
-  const quickQuestions = [
-    t('chipDelivery'),
-    t('chipPurity'),
-    t('chipDiscount'),
-    t('chipSample')
-  ];
+  const quickQuestions = isFarmer
+    ? [
+        language === 'hi' ? 'जी, ताज़ा स्टॉक उपलब्ध है।' : (language === 'pa' ? 'ਹਾਂ ਜੀ, ਤਾਜ਼ਾ ਸਟਾਕ ਉਪਲਬਧ ਹੈ।' : 'Yes, fresh stock is available.'),
+        language === 'hi' ? 'कल डिलीवरी हो जाएगी।' : (language === 'pa' ? 'ਕੱਲ ਡਿਲੀਵਰੀ ਹੋ ਜਾਵੇਗੀ।' : 'Delivery available tomorrow.'),
+        language === 'hi' ? '100% शुद्ध और प्राकृतिक है।' : (language === 'pa' ? '100% ਸ਼ੁੱਧ ਅਤੇ ਕੁਦਰਤੀ ਹੈ।' : '100% pure and organic.'),
+        language === 'hi' ? 'कैश ऑन डिलीवरी या UPI उपलब्ध है।' : (language === 'pa' ? 'ਕੈਸ਼ ਜਾਂ UPI ਉਪਲਬਧ ਹੈ।' : 'Cash on delivery or UPI accepted.')
+      ]
+    : [
+        t('chipDelivery'),
+        t('chipPurity'),
+        t('chipDiscount'),
+        t('chipSample')
+      ];
 
   return (
     <div className="modal-overlay" onClick={() => setShowChatModal(false)}>
@@ -99,50 +123,78 @@ export function ChatModal() {
         {/* Chat Modal Header */}
         <div className="chat-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-            <div className="chat-farmer-avatar">
-              {activeChat.sellerName?.charAt(0) || 'F'}
+            <div className="chat-farmer-avatar" style={{ background: isFarmer ? '#e0f2fe' : '#dcfce7', color: isFarmer ? '#0284c7' : 'var(--primary-forest)' }}>
+              {counterpartName?.charAt(0) || (isFarmer ? 'C' : 'F')}
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span className="chat-farmer-name">
-                  {activeChat.sellerName?.split('(')[0]?.trim()}
+                  {counterpartName}
                 </span>
                 <ShieldCheck size={15} color="var(--primary-emerald)" />
               </div>
               <div className="chat-farmer-location">
                 <MapPin size={11} />
-                <span>{activeChat.sellerLocation}</span>
+                <span>{counterpartSubtitle}</span>
                 <span style={{ margin: '0 3px' }}>•</span>
-                <span style={{ color: '#16a34a', fontWeight: '700' }}>Active Now</span>
+                <span style={{ color: '#16a34a', fontWeight: '700' }}>Direct Live</span>
               </div>
             </div>
           </div>
 
           {/* Quick Actions in Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-            {/* Secondary WhatsApp Button - Only if farmer enabled WhatsApp */}
-            {isWhatsAppActive && (
-              <a
-                href={`https://wa.me/${activeChat.sellerWhatsApp || `91${activeChat.sellerPhone}`}?text=${encodeURIComponent(`Namaste ${activeChat.sellerName}! Inquiry for ${activeChat.productTitle} on Fresh Fetch.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="chat-header-action-btn wa"
-                title={t('secondaryWhatsApp')}
-              >
-                <MessageCircle size={16} />
-                <span className="action-btn-label">WhatsApp</span>
-              </a>
-            )}
+            {/* If viewed by Farmer: Action to WhatsApp/Call Buyer if phone available */}
+            {isFarmer ? (
+              <>
+                {activeChat.buyerPhone && (
+                  <a
+                    href={`https://wa.me/91${activeChat.buyerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Namaste ${activeChat.buyerName || 'ji'}! In regards to your inquiry for ${activeChat.productTitle} on Fresh Fetch.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="chat-header-action-btn wa"
+                    title="WhatsApp Buyer"
+                  >
+                    <MessageCircle size={16} />
+                    <span className="action-btn-label">WhatsApp</span>
+                  </a>
+                )}
+                {activeChat.buyerPhone && (
+                  <a
+                    href={`tel:${activeChat.buyerPhone}`}
+                    className="chat-header-action-btn call"
+                    title="Call Buyer"
+                  >
+                    <Phone size={15} />
+                  </a>
+                )}
+              </>
+            ) : (
+              /* If viewed by Buyer: Secondary WhatsApp & Call Producer */
+              <>
+                {isWhatsAppActive && (
+                  <a
+                    href={`https://wa.me/${activeChat.sellerWhatsApp || `91${activeChat.sellerPhone}`}?text=${encodeURIComponent(`Namaste ${activeChat.sellerName}! Inquiry for ${activeChat.productTitle} on Fresh Fetch.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="chat-header-action-btn wa"
+                    title={t('secondaryWhatsApp')}
+                  >
+                    <MessageCircle size={16} />
+                    <span className="action-btn-label">WhatsApp</span>
+                  </a>
+                )}
 
-            {/* Phone Call Button - Only if farmer enabled Phone */}
-            {isPhoneActive && (
-              <a
-                href={`tel:${activeChat.sellerPhone}`}
-                className="chat-header-action-btn call"
-                title={t('callProducerAction')}
-              >
-                <Phone size={15} />
-              </a>
+                {isPhoneActive && (
+                  <a
+                    href={`tel:${activeChat.sellerPhone}`}
+                    className="chat-header-action-btn call"
+                    title={t('callProducerAction')}
+                  >
+                    <Phone size={15} />
+                  </a>
+                )}
+              </>
             )}
 
             {/* Close Button */}
@@ -184,12 +236,29 @@ export function ChatModal() {
         {/* Messages Scroll Area */}
         <div className="chat-messages-container">
           <div className="chat-security-notice">
-            <span>🔒 Direct Farmer to Buyer conversation. Safe & authentic.</span>
+            <span>🔒 Direct Farmer to Buyer conversation. Real-time & authentic.</span>
           </div>
 
+          {(!activeChat.messages || activeChat.messages.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '2.5rem 1.25rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2.2rem', marginBottom: '0.65rem' }}>💬</div>
+              <p style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                {isFarmer
+                  ? (language === 'hi' ? 'ग्राहक के सीधे संदेश की प्रतीक्षा है' : 'Waiting for buyer message')
+                  : (language === 'hi' ? 'किसान से सीधे बातचीत शुरू करें' : 'Start direct conversation with farmer')}
+              </p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, maxWidth: '360px', marginInline: 'auto' }}>
+                {isFarmer
+                  ? (language === 'hi' ? 'ग्राहक द्वारा भेजा गया सवाल या आर्डर विवरण यहाँ दिखेगा।' : 'When the customer sends a message or inquiry, it will appear here.')
+                  : (language === 'hi' ? 'उत्पाद की शुद्धता, ताज़गी, डिलीवरी या कीमत के बारे में पूछें।' : 'Ask anything about harvest freshness, packaging, home delivery, or bulk orders.')}
+              </p>
+            </div>
+          )}
+
           {activeChat.messages?.map((msg) => {
-            const isMe = (role === 'producer' && msg.senderRole === 'producer') || 
-                         (role !== 'producer' && msg.senderRole === 'buyer');
+            const isMe = isFarmer
+              ? msg.senderRole === 'producer'
+              : msg.senderRole === 'buyer';
 
             return (
               <div 
@@ -197,8 +266,8 @@ export function ChatModal() {
                 className={`chat-message-row ${isMe ? 'my-message' : 'other-message'}`}
               >
                 {!isMe && (
-                  <div className="chat-msg-avatar">
-                    {msg.senderName?.charAt(0) || 'F'}
+                  <div className="chat-msg-avatar" style={{ background: isFarmer ? '#e0f2fe' : '#dcfce7', color: isFarmer ? '#0284c7' : 'var(--primary-forest)' }}>
+                    {msg.senderName?.charAt(0) || (isFarmer ? 'B' : 'F')}
                   </div>
                 )}
                 
@@ -250,7 +319,9 @@ export function ChatModal() {
           <input
             type="text"
             className="chat-input-field"
-            placeholder={t('typeMessagePlaceholder')}
+            placeholder={isFarmer 
+              ? (language === 'hi' ? 'ग्राहक को जवाब लिखें...' : 'Type reply to customer...') 
+              : t('typeMessagePlaceholder')}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             autoFocus

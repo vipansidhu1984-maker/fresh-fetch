@@ -28,13 +28,30 @@ export function BottomNav() {
     language 
   } = useApp();
 
-  const myInquiries = (inquiries || []).filter(
-    (inq) => currentUser ? (inq.sellerId === currentUser.id || inq.sellerPhone === currentUser.phone) : inq.sellerId === 'farmer-ramesh'
-  );
+  const currentSellerPhone = currentUser?.phone ? String(currentUser.phone).replace(/\D/g, '') : '';
+  const currentSellerPhone10 = currentSellerPhone.length >= 10 ? currentSellerPhone.slice(-10) : currentSellerPhone;
 
-  const myChats = (chats || []).filter(
-    (c) => currentUser ? (c.sellerId === currentUser.id || c.sellerPhone === currentUser.phone) : c.sellerId === 'farmer-ramesh'
-  );
+  const myInquiries = (inquiries || []).filter((inq) => {
+    if (!currentUser) return inq.sellerId === 'farmer-ramesh';
+    if (inq.sellerId && inq.sellerId === currentUser.id) return true;
+    if (currentSellerPhone10) {
+      const inqPhone = inq.sellerPhone ? String(inq.sellerPhone).replace(/\D/g, '') : '';
+      const inqPhone10 = inqPhone.length >= 10 ? inqPhone.slice(-10) : inqPhone;
+      if (inqPhone10 && inqPhone10 === currentSellerPhone10) return true;
+    }
+    return false;
+  });
+
+  const myChats = (chats || []).filter((c) => {
+    if (!currentUser) return c.sellerId === 'farmer-ramesh';
+    if (c.sellerId && c.sellerId === currentUser.id) return true;
+    if (currentSellerPhone10) {
+      const cPhone = c.sellerPhone ? String(c.sellerPhone).replace(/\D/g, '') : '';
+      const cPhone10 = cPhone.length >= 10 ? cPhone.slice(-10) : cPhone;
+      if (cPhone10 && cPhone10 === currentSellerPhone10) return true;
+    }
+    return false;
+  });
 
   // Count unread WhatsApp inquiries and unread chat messages
   const unreadInquiries = myInquiries.filter((inq) => !(readInquiryIds || []).includes(inq.id));
