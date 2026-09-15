@@ -41,7 +41,7 @@ export function UserProfile() {
   } = useApp();
 
   const myProducts = products.filter(
-    (p) => currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : p.sellerId === 'farmer-ramesh'
+    (p) => p && !['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id) && (currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : false)
   );
 
   const myInquiries = (inquiries || []).filter(

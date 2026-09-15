@@ -86,9 +86,14 @@ export function BuyerMarketplace() {
   const [reviewComment, setReviewComment] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
 
-  // Filter products by region, category, search, freshness, and WISHLIST if in saved view
+  // Filter products by region, category, search, freshness, and WISHLIST (Strictly Real farmer listings only)
   const filteredProducts = (products || []).filter((prod) => {
     if (!prod || !prod.id) return false;
+
+    // Strictly exclude any fake / mock items
+    if (['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(prod.id)) {
+      return false;
+    }
 
     // 1. If in Saved / Wishlist tab, must be in user's saved wishlist
     if (isWishlistView && !(wishlist || []).includes(prod.id)) {

@@ -193,13 +193,10 @@ export async function verifyFirebasePhoneOtp(otpCode) {
 }
 
 // ============================================================================
-// 4. MULTI-TIER CLOUD & BROADCAST BUS: LIVE PRODUCTS DATABASE
+// 4. CLOUD FIRESTORE & BROADCAST CHANNEL: LIVE PRODUCTS DATABASE
 // ============================================================================
 
-const CLOUD_REGISTRY_ID = 'ff808181a09d98f701a0a5fc15eb12ec';
-const CLOUD_REGISTRY_ENDPOINT = `https://api.restful-api.dev/objects/${CLOUD_REGISTRY_ID}`;
-
-// Cross-tab broadcast channel for instantaneous zero-latency sync
+// Cross-tab broadcast channel for instantaneous zero-latency local sync
 export const syncBus = typeof window !== 'undefined' && typeof window.BroadcastChannel !== 'undefined'
   ? new BroadcastChannel('freshfetch_sync_bus')
   : null;
@@ -218,144 +215,63 @@ export function broadcastSync(action, payload) {
 }
 
 /**
- * Helper to fetch products from the Cloud Registry Relay
- */
-export async function fetchFromCloudRegistry() {
-  try {
-    const res = await fetch(CLOUD_REGISTRY_ENDPOINT);
-    if (!res.ok) return [];
-    const json = await res.json();
-    if (json && json.data && Array.isArray(json.data.products)) {
-      return json.data.products;
-    }
-    return [];
-  } catch (err) {
-    console.warn("Cloud registry fetch warning:", err);
-    return [];
-  }
-}
-
-/**
- * Helper to push an updated products array to the Cloud Registry Relay
- */
-export async function saveToCloudRegistry(products) {
-  try {
-    if (!Array.isArray(products)) return false;
-    // Strip large binary payloads if any to ensure fast network sync
-    const cleanList = products.map((p) => {
-      const copy = { ...p };
-      return copy;
-    });
-
-    await fetch(CLOUD_REGISTRY_ENDPOINT, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'FreshFetch_Live_Products_Registry_v1',
-        data: {
-          updatedAt: Date.now(),
-          products: cleanList
-        }
-      })
-    });
-    return true;
-  } catch (err) {
-    console.warn("Cloud registry save warning:", err);
-    return false;
-  }
-}
-
-/**
- * Direct one-time fetch of all Products from Firestore + Cloud Registry Relay
+ * Direct one-time fetch of all Products from Firestore
  */
 export async function fetchCloudProductsOnce() {
-  const mergedMap = new Map();
+  if (!isFirebaseConfigured || !db) return [];
 
-  // 1. Fetch from Firestore if configured
-  if (isFirebaseConfigured && db) {
-    try {
-      const colRef = collection(db, 'products');
-      const snapshot = await getDocs(colRef);
-      snapshot.docs.forEach((doc) => {
-        mergedMap.set(doc.id, { id: doc.id, ...doc.data() });
-      });
-    } catch (err) {
-      console.warn("Direct Firestore products fetch warning (will use Cloud Registry):", err?.message || err);
-    }
-  }
-
-  // 2. Fetch from 24/7 Cloud Registry Relay (ensures all devices & users receive listings even if Firestore rules are locked)
   try {
-    const registryProds = await fetchFromCloudRegistry();
-    registryProds.forEach((p) => {
-      if (p && p.id && !mergedMap.has(p.id)) {
-        mergedMap.set(p.id, p);
-      }
+    const colRef = collection(db, 'products');
+    const snapshot = await getDocs(colRef);
+    const products = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Sort newest first
+    products.sort((a, b) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+      return timeB - timeA;
     });
+
+    return products;
   } catch (err) {
-    console.warn("Cloud registry fetch in fetchCloudProductsOnce error:", err);
+    console.warn("Firestore products fetch warning:", err?.message || err);
+    return [];
   }
-
-  const products = Array.from(mergedMap.values());
-  products.sort((a, b) => {
-    const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
-    const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
-    return timeB - timeA;
-  });
-
-  return products;
 }
 
 /**
- * Real-time subscription to Products with Multi-Channel Cloud Sync & Polling Heartbeat
+ * Real-time subscription to live Products collection in Cloud Firestore
  */
 export function subscribeToCloudProducts(onUpdate, onError) {
-  let isSubscribed = true;
-  let unsubscribeFirestore = () => {};
+  if (!isFirebaseConfigured || !db) return () => {};
 
-  // 1. Setup Firestore live listener
-  if (isFirebaseConfigured && db) {
-    try {
-      const colRef = collection(db, 'products');
-      unsubscribeFirestore = onSnapshot(colRef, (snapshot) => {
-        if (!isSubscribed) return;
-        const products = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        if (products.length > 0) {
-          onUpdate(products);
-        }
-      }, (err) => {
-        console.warn("Firestore live products listener warning (using Cloud Registry):", err?.message || err);
-        if (onError) onError(err);
+  try {
+    const colRef = collection(db, 'products');
+    return onSnapshot(colRef, (snapshot) => {
+      const products = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Sort newest first
+      products.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdDate ? new Date(b.createdDate).getTime() : 0);
+        return timeB - timeA;
       });
-    } catch (err) {
-      console.warn("Failed to subscribe to cloud products via Firestore:", err);
-    }
+
+      onUpdate(products);
+    }, (err) => {
+      console.warn("Firestore live products sync notice:", err?.message || err);
+      if (onError) onError(err);
+    });
+  } catch (err) {
+    console.warn("Failed to subscribe to cloud products:", err);
+    return () => {};
   }
-
-  // 2. Initial fetch & 8-second background polling from Cloud Registry Relay
-  const pollCloudRegistry = async () => {
-    if (!isSubscribed) return;
-    try {
-      const prods = await fetchCloudProductsOnce();
-      if (isSubscribed && prods && prods.length > 0) {
-        onUpdate(prods);
-      }
-    } catch (err) {
-      console.warn("Cloud registry sync poll warning:", err);
-    }
-  };
-
-  pollCloudRegistry();
-  const pollInterval = setInterval(pollCloudRegistry, 8000);
-
-  return () => {
-    isSubscribed = false;
-    unsubscribeFirestore();
-    clearInterval(pollInterval);
-  };
 }
 
 // Helper to sanitize objects and remove any undefined fields before sending to Firestore
@@ -376,7 +292,7 @@ function sanitizeForFirestore(obj) {
 }
 
 /**
- * Save / Create a new product across Firestore, Cloud Registry Relay & BroadcastChannel
+ * Save / Create a new product in Firestore and broadcast to all open tabs
  */
 export async function saveProductToCloud(product) {
   if (!product || !product.id) return { success: false, offline: true };
@@ -384,17 +300,7 @@ export async function saveProductToCloud(product) {
   // 1. Broadcast immediately to all open local tabs/windows
   broadcastSync('ADD_PRODUCT', product);
 
-  // 2. Save to Cloud Registry Relay (24/7 Universal Cloud Database)
-  try {
-    const existing = await fetchFromCloudRegistry();
-    const updatedList = [product, ...(existing.filter(p => p && p.id !== product.id))];
-    await saveToCloudRegistry(updatedList);
-    console.log(`✅ Product ${product.id} synced to 24/7 Cloud Registry.`);
-  } catch (err) {
-    console.warn("Cloud registry save in saveProductToCloud error:", err);
-  }
-
-  // 3. Save to Google Cloud Firestore (if configured)
+  // 2. Save to Cloud Firestore (24/7 Live Database)
   if (isFirebaseConfigured && db) {
     try {
       const sanitized = sanitizeForFirestore(product);
@@ -405,8 +311,10 @@ export async function saveProductToCloud(product) {
         createdAt: sanitized.createdAt || serverTimestamp()
       }, { merge: true });
       console.log(`✅ Product ${product.id} synced to Cloud Firestore.`);
+      return { success: true };
     } catch (err) {
-      console.warn("Firestore save product error (saved to Cloud Registry):", err?.message || err);
+      console.warn("Firestore save product error:", err?.message || err);
+      return { success: false, error: err?.message };
     }
   }
 
@@ -414,7 +322,7 @@ export async function saveProductToCloud(product) {
 }
 
 /**
- * Delete a product from Firestore, Cloud Registry & BroadcastChannel
+ * Delete a product from Firestore and broadcast to all open tabs
  */
 export async function deleteProductFromCloud(productId) {
   if (!productId) return { success: false, offline: true };
@@ -422,21 +330,14 @@ export async function deleteProductFromCloud(productId) {
   // 1. Broadcast to all open tabs
   broadcastSync('DELETE_PRODUCT', { productId });
 
-  // 2. Remove from Cloud Registry Relay
-  try {
-    const existing = await fetchFromCloudRegistry();
-    const updatedList = existing.filter(p => p && p.id !== productId);
-    await saveToCloudRegistry(updatedList);
-  } catch (err) {
-    console.warn("Cloud registry delete error:", err);
-  }
-
-  // 3. Remove from Firestore
+  // 2. Remove from Firestore
   if (isFirebaseConfigured && db) {
     try {
       await deleteDoc(doc(db, 'products', productId));
+      return { success: true };
     } catch (err) {
       console.warn("Firestore delete product error:", err?.message || err);
+      return { success: false, error: err?.message };
     }
   }
 
@@ -452,21 +353,7 @@ export async function updateProductInCloud(productId, updates) {
   // 1. Broadcast to all open tabs
   broadcastSync('UPDATE_PRODUCT', { productId, updates });
 
-  // 2. Update in Cloud Registry Relay
-  try {
-    const existing = await fetchFromCloudRegistry();
-    const updatedList = existing.map(p => {
-      if (p && p.id === productId) {
-        return { ...p, ...updates };
-      }
-      return p;
-    });
-    await saveToCloudRegistry(updatedList);
-  } catch (err) {
-    console.warn("Cloud registry update error:", err);
-  }
-
-  // 3. Update in Firestore
+  // 2. Update in Firestore
   if (isFirebaseConfigured && db) {
     try {
       const sanitized = sanitizeForFirestore(updates);
@@ -475,8 +362,10 @@ export async function updateProductInCloud(productId, updates) {
         ...sanitized,
         updatedAt: serverTimestamp()
       });
+      return { success: true };
     } catch (err) {
       console.warn("Firestore update product error:", err?.message || err);
+      return { success: false, error: err?.message };
     }
   }
 

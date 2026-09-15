@@ -45,9 +45,9 @@ export function SellerDashboard() {
     language 
   } = useApp();
 
-  // Filter products by current seller
+  // Filter products by current seller (Real farmer listings only)
   const myProducts = products.filter(
-    (p) => currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : p.sellerId === 'farmer-ramesh'
+    (p) => p && !['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'].includes(p.id) && (currentUser ? (p.sellerId === currentUser.id || p.sellerPhone === currentUser.phone) : false)
   );
 
   // Filter chats by current seller

@@ -101,10 +101,13 @@ export function AppProvider({ children }) {
   // Active Bottom Nav Tab
   const [activeTab, setActiveTab] = useState('marketplace');
 
-  // Products state (Initialized with saved products or verified initial farm products)
+  const FAKE_PRODUCT_IDS = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
+  const isRealProduct = (p) => p && p.id && !FAKE_PRODUCT_IDS.includes(p.id);
+
+  // Products state (Strictly Real farmer listings only - Zero fake/dummy listings)
   const [products, setProducts] = useState(() => {
-    const saved = safeJsonParse('freshfetch_products', INITIAL_PRODUCTS);
-    return Array.isArray(saved) && saved.length > 0 ? saved : INITIAL_PRODUCTS;
+    const saved = safeJsonParse('freshfetch_products', []);
+    return (Array.isArray(saved) ? saved : []).filter(isRealProduct);
   });
 
   // In-App Chat Threads state
@@ -196,7 +199,8 @@ export function AppProvider({ children }) {
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('freshfetch_products', JSON.stringify(products));
+    const cleanProds = (products || []).filter(isRealProduct);
+    localStorage.setItem('freshfetch_products', JSON.stringify(cleanProds));
   }, [products]);
 
   useEffect(() => {
@@ -211,18 +215,18 @@ export function AppProvider({ children }) {
     localStorage.setItem('freshfetch_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
-  // Real-time Multi-Channel Synchronization (Cloud Firestore + 24/7 Cloud Registry + BroadcastChannel + Local Storage)
+  // Real-time Multi-Channel Synchronization (Cloud Firestore + BroadcastChannel + Local Storage)
   useEffect(() => {
     let unsubscribeProducts = () => {};
     let unsubscribeChats = () => {};
 
-    // 1. Initial One-time Direct Cloud Fetch
+    // 1. Initial One-time Direct Cloud Fetch (Real farmer listings only)
     fetchCloudProductsOnce().then((cloudProds) => {
       if (cloudProds && cloudProds.length > 0) {
         setProducts((prev) => {
           const map = new Map();
-          (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
-          cloudProds.forEach((p) => p && p.id && map.set(p.id, p));
+          (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
+          cloudProds.filter(isRealProduct).forEach((p) => map.set(p.id, p));
           const merged = Array.from(map.values());
           merged.sort((a, b) => {
             const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
@@ -234,13 +238,13 @@ export function AppProvider({ children }) {
       }
     }).catch(console.warn);
 
-    // 2. Real-time Multi-Tier Cloud Subscription (Firestore + Cloud Registry Polling)
+    // 2. Real-time Multi-Tier Cloud Subscription
     unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
       if (cloudProds && Array.isArray(cloudProds) && cloudProds.length > 0) {
         setProducts((prev) => {
           const map = new Map();
-          (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
-          cloudProds.forEach((p) => p && p.id && map.set(p.id, p));
+          (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
+          cloudProds.filter(isRealProduct).forEach((p) => map.set(p.id, p));
           const merged = Array.from(map.values());
           merged.sort((a, b) => {
             const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : (a.createdDate ? new Date(a.createdDate).getTime() : 0);
@@ -256,8 +260,8 @@ export function AppProvider({ children }) {
     const handleSyncMessage = (event) => {
       if (!event || !event.data) return;
       const { action, payload } = event.data;
-      if (action === 'ADD_PRODUCT' && payload && payload.id) {
-        setProducts((prev) => [payload, ...(prev || []).filter((p) => p.id !== payload.id)]);
+      if (action === 'ADD_PRODUCT' && isRealProduct(payload)) {
+        setProducts((prev) => [payload, ...(prev || []).filter((p) => isRealProduct(p) && p.id !== payload.id)]);
       } else if (action === 'DELETE_PRODUCT' && payload && payload.productId) {
         setProducts((prev) => (prev || []).filter((p) => p.id !== payload.productId));
       } else if (action === 'UPDATE_PRODUCT' && payload && payload.productId) {
@@ -289,8 +293,8 @@ export function AppProvider({ children }) {
           if (Array.isArray(parsed)) {
             setProducts((prev) => {
               const map = new Map();
-              (prev || []).forEach((p) => p && p.id && map.set(p.id, p));
-              parsed.forEach((p) => p && p.id && map.set(p.id, p));
+              (prev || []).filter(isRealProduct).forEach((p) => map.set(p.id, p));
+              parsed.filter(isRealProduct).forEach((p) => map.set(p.id, p));
               return Array.from(map.values());
             });
           }
