@@ -462,21 +462,36 @@ export function AppProvider({ children }) {
     return resetPasswordDirect(phone, newPassword);
   };
 
-  // 6. Register New User and store in user database
-  const registerNewUser = (data) => {
-    const cleanPhone = data.phone ? data.phone.replace(/\D/g, '') : '9876543210';
-    
-    // Check if phone already registered
-    const existing = registeredUsers.find((u) => u.phone === cleanPhone);
+  // 6. Register New User and store in user database (Strict 1 account per mobile number)
+  const registerNewUser = async (data) => {
+    const cleanPhone = (data.phone ? data.phone.replace(/\D/g, '') : '').trim();
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return { success: false, error: t('invalidCredentials') || 'Please enter a valid 10-digit mobile number' };
+    }
+
+    // 1. Check local registered users
+    let existing = registeredUsers.find((u) => u.phone === cleanPhone);
+
+    // 2. Check Cloud Firestore for existing account with same number
+    if (!existing && isFirebaseConfigured) {
+      try {
+        const cloudUser = await fetchUserFromCloud(cleanPhone);
+        if (cloudUser) {
+          existing = cloudUser;
+          setRegisteredUsers((prev) => [...prev.filter((u) => u.phone !== cleanPhone), cloudUser]);
+        }
+      } catch (err) {
+        console.warn("Cloud user check on register:", err);
+      }
+    }
+
+    // If an account is already registered with this mobile number, block duplicate registration and return an error!
     if (existing) {
-      // update existing password / info
-      const updated = { ...existing, ...data, phone: cleanPhone };
-      setRegisteredUsers((prev) => prev.map((u) => (u.phone === cleanPhone ? updated : u)));
-      setCurrentUser(updated);
-      setRole(updated.role);
-      setOnboardingStep(5);
-      saveUserToCloud(updated);
-      return { success: true, user: updated };
+      return {
+        success: false,
+        alreadyRegistered: true,
+        error: t('phoneAlreadyRegistered') || 'An account is already registered with this mobile number. Please sign in instead.'
+      };
     }
 
     const newUser = {

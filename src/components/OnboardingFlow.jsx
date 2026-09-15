@@ -78,13 +78,16 @@ export function OnboardingFlow() {
     }
 
     setLoading(true);
-    const res = registerNewUser({
+    const res = await registerNewUser({
       ...formData,
       role: role || 'buyer'
     });
     setLoading(false);
     if (!res.success) {
-      setAuthError(res.error || 'Failed to create account');
+      setAuthError(res.error || (language === 'hi' ? 'खाता बनाने में विफल' : 'Failed to create account'));
+      if (res.alreadyRegistered) {
+        setLoginPhone(formData.phone);
+      }
     }
   };
 
@@ -307,8 +310,38 @@ export function OnboardingFlow() {
 
             {/* Error Message */}
             {authError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: '0.6rem 0.85rem', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', fontWeight: '600', marginBottom: '1rem' }}>
-                ⚠️ {authError}
+              <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', color: '#b91c1c', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)', fontSize: '0.84rem', fontWeight: '600', marginBottom: '1.1rem', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', marginBottom: (authError.includes('sign in') || authError.includes('लॉगिन') || authError.includes('ਲਾਗਇਨ')) ? '0.6rem' : 0 }}>
+                  <span style={{ fontSize: '1rem' }}>⚠️</span>
+                  <span style={{ lineHeight: '1.4' }}>{authError}</span>
+                </div>
+                {(authError.includes('sign in') || authError.includes('लॉगिन') || authError.includes('ਲਾਗਇਨ')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginPhone(formData.phone || loginPhone);
+                      setAuthError('');
+                      setStep3Mode('login');
+                    }}
+                    style={{
+                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      color: '#ffffff',
+                      background: 'var(--primary-forest)',
+                      border: 'none',
+                      padding: '0.4rem 0.85rem',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <span>{language === 'hi' ? 'यहाँ लॉगिन करें' : language === 'pa' ? 'ਇੱਥੇ ਲਾਗਇਨ ਕਰੋ' : 'Click here to Sign In'}</span>
+                    <ArrowRight size={14} />
+                  </button>
+                )}
               </div>
             )}
 
