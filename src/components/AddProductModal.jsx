@@ -26,13 +26,46 @@ export function AddProductModal() {
     language 
   } = useApp();
 
+  // Helper to compress camera/phone photos before saving to Cloud Firestore
+  const compressPhoto = (file, maxWidth = 900, quality = 0.75) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxWidth) {
+              width = Math.round((width * maxWidth) / height);
+              height = maxWidth;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const IMAGE_PRESETS = [
-    { label: 'Desi Ghee', url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1bilona_curd_churning_sample_drive_video_view/view?usp=sharing', badge: 'A2 Bilona Method', shelfLife: 180 },
-    { label: 'Sarson Oil', url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1mustard_kolhu_coldpress_drive_video_view/view?usp=sharing', badge: 'Wood Pressed / Kolhu', shelfLife: 90 },
-    { label: 'Pure Haldi', url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1turmeric_stone_grinding_video_view/view?usp=sharing', badge: 'Stone Ground (हाथ पिसाई)', shelfLife: 365 },
-    { label: 'Raw Honey', url: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1honey_apiary_harvest_drive_video_view/view?usp=sharing', badge: '100% Raw Unprocessed', shelfLife: 365 },
-    { label: 'Chakki Atta', url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1chakki_atta_stone_grind_video/view?usp=sharing', badge: 'Slow Stone Ground', shelfLife: 30 },
-    { label: 'Kinnow', url: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=800&q=80', video: 'https://drive.google.com/file/d/1ganganagar_kinnow_orchard_harvest_video/view?usp=sharing', badge: 'Tree Ripened Pluck', shelfLife: 15 }
+    { label: 'Desi Ghee', url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=800&q=80', badge: 'A2 Bilona Method', shelfLife: 180 },
+    { label: 'Sarson Oil', url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80', badge: 'Wood Pressed / Kolhu', shelfLife: 90 },
+    { label: 'Pure Haldi', url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=800&q=80', badge: 'Stone Ground (हाथ पिसाई)', shelfLife: 365 },
+    { label: 'Raw Honey', url: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80', badge: '100% Raw Unprocessed', shelfLife: 365 },
+    { label: 'Chakki Atta', url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80', badge: 'Slow Stone Ground', shelfLife: 30 },
+    { label: 'Kinnow', url: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=800&q=80', badge: 'Tree Ripened Pluck', shelfLife: 15 }
   ];
 
   const [formData, setFormData] = useState({
@@ -44,7 +77,7 @@ export function AddProductModal() {
     minOrder: '1 kg',
     shelfLifeDays: 180,
     image: IMAGE_PRESETS[0].url,
-    videoUrl: IMAGE_PRESETS[0].video,
+    videoUrl: '',
     purityBadge: IMAGE_PRESETS[0].badge,
     purityMethod: '',
     processMedia: [],
@@ -54,44 +87,46 @@ export function AddProductModal() {
 
   if (!showAddProductModal) return null;
 
-  // Upload handler for Main Product Photo
-  const handleMainPhotoUpload = (e) => {
+  // Upload handler for Main Product Photo with auto-compression
+  const handleMainPhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(language === 'hi' ? 'फ़ोटो 5MB से कम होनी चाहिए' : 'Photo size should be under 5MB');
+      if (file.size > 15 * 1024 * 1024) {
+        alert(language === 'hi' ? 'फ़ोटो 15MB से कम होनी चाहिए' : 'Photo size should be under 15MB');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFormData((prev) => ({ ...prev, image: event.target.result }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressedDataUrl = await compressPhoto(file, 900, 0.78);
+        setFormData((prev) => ({ ...prev, image: compressedDataUrl }));
+      } catch (err) {
+        console.error("Failed to process photo:", err);
+      }
     }
   };
 
-  // Upload handler for Process / Making Photos
-  const handleProcessPhotosUpload = (e) => {
+  // Upload handler for Process / Making Photos with auto-compression
+  const handleProcessPhotosUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      files.forEach((file) => {
-        if (file.size > 5 * 1024 * 1024) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
+      for (const file of files) {
+        if (file.size > 15 * 1024 * 1024) continue;
+        try {
+          const compressedDataUrl = await compressPhoto(file, 800, 0.72);
           setFormData((prev) => ({
             ...prev,
             processMedia: [
               ...(prev.processMedia || []),
               {
                 type: 'image',
-                url: event.target.result,
+                url: compressedDataUrl,
                 caption: file.name.split('.')[0] || 'Making Step'
               }
             ]
           }));
-        };
-        reader.readAsDataURL(file);
-      });
+        } catch (err) {
+          console.error("Failed to compress process photo:", err);
+        }
+      }
     }
   };
 
@@ -139,7 +174,7 @@ export function AddProductModal() {
       minOrder: '1 kg',
       shelfLifeDays: 180,
       image: IMAGE_PRESETS[0].url,
-      videoUrl: IMAGE_PRESETS[0].video,
+      videoUrl: '',
       purityBadge: IMAGE_PRESETS[0].badge,
       purityMethod: '',
       processMedia: [],

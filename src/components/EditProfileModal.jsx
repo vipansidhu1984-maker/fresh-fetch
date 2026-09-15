@@ -30,17 +30,41 @@ export function EditProfileModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Handle Profile Photo Upload (Camera / Gallery)
+  // Handle Profile Photo Upload (Camera / Gallery) with auto-compression
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(language === 'hi' ? 'फ़ोटो 5MB से कम होनी चाहिए' : 'Photo size must be under 5MB');
+      if (file.size > 15 * 1024 * 1024) {
+        alert(language === 'hi' ? 'फ़ोटो 15MB से कम होनी चाहिए' : 'Photo size must be under 15MB');
         return;
       }
       const reader = new FileReader();
       reader.onload = (event) => {
-        setFormData((prev) => ({ ...prev, avatar: event.target.result }));
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 400;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.8);
+          setFormData((prev) => ({ ...prev, avatar: compressed }));
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }

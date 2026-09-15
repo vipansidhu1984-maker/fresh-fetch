@@ -102,9 +102,8 @@ export function AppProvider({ children }) {
   const [products, setProducts] = useState(() => {
     const saved = safeJsonParse('freshfetch_products', []);
     const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-    const fakeSellers = ['farmer-ramesh', 'farmer-harpreet', 'farmer-balwinder', 'farmer-gurmeet', 'farmer-manpreet', 'farmer-satnam'];
     return (Array.isArray(saved) ? saved : []).filter(
-      (p) => p && p.id && !fakeIds.includes(p.id) && !fakeSellers.includes(p.sellerId)
+      (p) => p && p.id && !fakeIds.includes(p.id)
     );
   });
 
@@ -209,11 +208,10 @@ export function AppProvider({ children }) {
 
     // 1. Subscribe to Live Cloud Products (Real farmer listings only)
     const unsubscribeProducts = subscribeToCloudProducts((cloudProds) => {
-      if (cloudProds) {
+      if (cloudProds && Array.isArray(cloudProds)) {
         const fakeIds = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5', 'prod-6'];
-        const fakeSellers = ['farmer-ramesh', 'farmer-harpreet', 'farmer-balwinder', 'farmer-gurmeet', 'farmer-manpreet', 'farmer-satnam'];
         const realProds = cloudProds.filter(
-          (p) => p && p.id && !fakeIds.includes(p.id) && !fakeSellers.includes(p.sellerId)
+          (p) => p && p.id && !fakeIds.includes(p.id)
         );
         setProducts(realProds);
       }
@@ -695,21 +693,24 @@ export function AppProvider({ children }) {
     const productObj = {
       ...newProduct,
       id: `prod-${Date.now()}`,
-      sellerId: currentUser?.id || 'farmer-ramesh',
-      sellerName: currentUser?.name || 'Ramesh Kumar (रमेश कुमार)',
-      sellerPhone: currentUser?.phone || '9829012345',
-      sellerWhatsApp: `91${currentUser?.phone || '9829012345'}`,
-      sellerLocation: currentUser?.location || 'Sangaria, Hanumangarh',
-      regionId: currentUser?.regionId || 'hnm-sangaria',
-      farmName: currentUser?.farmName || 'Kisan Pure Farm',
+      sellerId: currentUser?.id || (currentUser?.phone ? `farmer-${currentUser.phone}` : `farmer-${Date.now()}`),
+      sellerName: currentUser?.name || 'Local Verified Farmer',
+      sellerPhone: currentUser?.phone || '',
+      sellerWhatsApp: currentUser?.phone ? `91${currentUser.phone.replace(/\D/g, '')}` : '',
+      showWhatsApp: currentUser?.showWhatsApp !== false,
+      showPhone: currentUser?.showPhone !== false,
+      sellerLocation: currentUser?.location || 'Hanumangarh',
+      regionId: currentUser?.regionId || 'hnm-town',
+      farmName: currentUser?.farmName || '',
       availableQty: newProduct.availableQty || '25 kg',
       shelfLifeDays,
       expiryDate,
       verified: true,
       inStock: true,
-      rating: 5.0,
+      rating: 0,
       reviewsCount: 0,
       reviews: [],
+      videoUrl: (newProduct.videoUrl || '').trim(),
       createdDate: new Date().toISOString().split('T')[0]
     };
     setProducts((prev) => [productObj, ...prev]);
@@ -792,12 +793,19 @@ export function AppProvider({ children }) {
             updatedReviews.length
           ).toFixed(1)
         );
-        return {
+        const updatedProd = {
           ...p,
           reviews: updatedReviews,
           reviewsCount: updatedReviews.length,
           rating: avgRating
         };
+        // Update in Cloud Firestore
+        updateProductInCloud(productId, {
+          reviews: updatedReviews,
+          reviewsCount: updatedReviews.length,
+          rating: avgRating
+        });
+        return updatedProd;
       })
     );
   };

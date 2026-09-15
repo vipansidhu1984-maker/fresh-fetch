@@ -17,6 +17,9 @@ import {
 
 export function SettingsModal() {
   const { 
+    currentUser,
+    role,
+    updateUserProfile,
     showSettingsModal, 
     setShowSettingsModal, 
     setShowPrivacyModal, 
@@ -142,7 +145,114 @@ export function SettingsModal() {
             </div>
           </div>
 
-          {/* 2. Dedicated Dark Mode Switcher */}
+          {/* 2. Farmer WhatsApp & Contact Privacy Controls (For Farmers) */}
+          {(role === 'producer' || currentUser?.role === 'producer') && (
+            <div
+              style={{
+                background: darkMode ? '#1e293b' : '#ecfdf5',
+                border: darkMode ? '1.5px solid #334155' : '1.5px solid #a7f3d0',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.1rem',
+                marginBottom: '1rem',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: '800', fontSize: '0.95rem', color: darkMode ? '#f8fafc' : 'var(--primary-forest)', marginBottom: '0.75rem' }}>
+                <Phone size={18} color="var(--primary-forest)" />
+                <span>
+                  {language === 'hi' ? 'किसान संपर्क व व्हाट्सएप प्राइवेसी' : language === 'pa' ? 'ਕਿਸਾਨ ਸੰਪਰਕ ਅਤੇ ਵਟਸਐਪ ਪ੍ਰਾਈਵੇਸੀ' : 'Seller Contact & WhatsApp Privacy'}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gap: '0.65rem' }}>
+                {/* Toggle WhatsApp */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', background: darkMode ? '#0f172a' : '#ffffff', padding: '0.75rem 0.85rem', borderRadius: 'var(--radius-md)', border: darkMode ? '1px solid #334155' : '1px solid var(--card-border)' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.86rem', color: darkMode ? '#f8fafc' : 'var(--text-primary)' }}>
+                      {language === 'hi' ? 'व्हाट्सएप नंबर दिखाएं' : language === 'pa' ? 'ਵਟਸਐਪ ਨੰਬਰ ਦਿਖਾਓ' : 'Show WhatsApp Number'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: darkMode ? '#94a3b8' : 'var(--text-muted)' }}>
+                      {language === 'hi' ? 'ग्राहक लिस्टिंग पर व्हाट्सएप बटन देख सकेंगे' : 'Allow buyers to message you directly on WhatsApp'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVal = currentUser?.showWhatsApp === false ? true : false;
+                      updateUserProfile({ showWhatsApp: newVal });
+                    }}
+                    style={{
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: 'var(--radius-full)',
+                      fontWeight: '800',
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      cursor: 'pointer',
+                      background: currentUser?.showWhatsApp !== false ? '#22c55e' : '#94a3b8',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {currentUser?.showWhatsApp !== false ? (
+                      <>
+                        <Check size={13} />
+                        <span>ON</span>
+                      </>
+                    ) : (
+                      <span>OFF</span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Toggle Phone Call */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', background: darkMode ? '#0f172a' : '#ffffff', padding: '0.75rem 0.85rem', borderRadius: 'var(--radius-md)', border: darkMode ? '1px solid #334155' : '1px solid var(--card-border)' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '0.86rem', color: darkMode ? '#f8fafc' : 'var(--text-primary)' }}>
+                      {language === 'hi' ? 'फ़ोन कॉल नंबर दिखाएं' : language === 'pa' ? 'ਫੋਨ ਕਾਲ ਨੰਬਰ ਦਿਖਾਓ' : 'Show Direct Phone Number'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: darkMode ? '#94a3b8' : 'var(--text-muted)' }}>
+                      {language === 'hi' ? 'ग्राहक लिस्टिंग पर डायरेक्ट कॉल बटन देख सकेंगे' : 'Allow buyers to call your phone number directly'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVal = currentUser?.showPhone === false ? true : false;
+                      updateUserProfile({ showPhone: newVal });
+                    }}
+                    style={{
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: 'var(--radius-full)',
+                      fontWeight: '800',
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      cursor: 'pointer',
+                      background: currentUser?.showPhone !== false ? '#22c55e' : '#94a3b8',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {currentUser?.showPhone !== false ? (
+                      <>
+                        <Check size={13} />
+                        <span>ON</span>
+                      </>
+                    ) : (
+                      <span>OFF</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Dedicated Dark Mode Switcher */}
           <div 
             style={{ 
               background: darkMode ? '#1e293b' : '#f8fafc', 

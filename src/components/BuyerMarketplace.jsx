@@ -43,7 +43,6 @@ export function BuyerMarketplace() {
     setSelectedProductDetail,
     showMakingMediaModal,
     setShowMakingMediaModal,
-    reportOutOfStock,
     addReview,
     activeTab,
     setActiveTab,
@@ -98,13 +97,6 @@ export function BuyerMarketplace() {
     setReviewComment('');
     setShowReviewForm(false);
     alert(t('reviewSubmitted'));
-  };
-
-  const handleReportOutOfStock = (productId) => {
-    if (window.confirm(language === 'hi' ? 'क्या आप इस उत्पाद को "स्टॉक समाप्त" रिपोर्ट करना चाहते हैं?' : 'Declare this item as Out of Stock for the community?')) {
-      reportOutOfStock(productId);
-      alert(t('outOfStockReportedSuccess'));
-    }
   };
 
   return (
@@ -335,8 +327,8 @@ export function BuyerMarketplace() {
                     {product.inStock ? t('inStock') : t('outOfStock')}
                   </div>
 
-                  {/* Making Process Video Quick Button */}
-                  {(product.videoUrl || product.fallbackDirectVideo) && (
+                  {/* Making Process Video Quick Button - ONLY IF VIDEO UPLOADED */}
+                  {Boolean(product.videoUrl && product.videoUrl.trim() && !product.videoUrl.includes('sample_drive_video')) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -368,12 +360,18 @@ export function BuyerMarketplace() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                     <span className="product-category-tag">{product.category}</span>
                     
-                    {/* Rating Stars */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.8rem', fontWeight: '800', color: '#b45309' }}>
-                      <Star size={13} fill="#f59e0b" color="#f59e0b" />
-                      <span>{product.rating}</span>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>({product.reviewsCount || product.reviews?.length || 0})</span>
-                    </div>
+                    {/* Real Rating Stars or 'New Listing' Tag (No default fake 5.0) */}
+                    {product.reviews && product.reviews.length > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.8rem', fontWeight: '800', color: '#b45309' }}>
+                        <Star size={13} fill="#f59e0b" color="#f59e0b" />
+                        <span>{product.rating}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>({product.reviews.length})</span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '0.72rem', color: 'var(--primary-forest)', background: '#ecfdf5', padding: '0.15rem 0.45rem', borderRadius: 'var(--radius-full)', fontWeight: '700' }}>
+                        ✨ {language === 'hi' ? 'नई लिस्टिंग' : language === 'pa' ? 'ਨਵੀਂ ਲਿਸਟਿੰਗ' : 'New Listing'}
+                      </span>
+                    )}
                   </div>
                   
                   <h3 
@@ -420,7 +418,7 @@ export function BuyerMarketplace() {
                     </div>
                   </div>
 
-                  {/* Actions: Primary In-App Chat + Secondary WhatsApp & Call */}
+                  {/* Actions: Primary In-App Chat + Secondary WhatsApp & Call (Honoring Seller Privacy) */}
                   <div className="product-card-actions">
                     <button
                       className="btn-chat-primary"
@@ -432,51 +430,44 @@ export function BuyerMarketplace() {
                     </button>
 
                     <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
-                      <button
-                        className="btn-whatsapp-compact"
-                        onClick={() => trackWhatsAppInquiry(product)}
-                        title={t('secondaryWhatsApp')}
-                      >
-                        <MessageCircle size={17} />
-                      </button>
+                      {product.showWhatsApp !== false && (
+                        <button
+                          className="btn-whatsapp-compact"
+                          onClick={() => trackWhatsAppInquiry(product)}
+                          title={t('secondaryWhatsApp')}
+                        >
+                          <MessageCircle size={17} />
+                        </button>
+                      )}
 
-                      <a
-                        href={`tel:${product.sellerPhone}`}
-                        className="btn-call-compact"
-                        title={t('callProducerAction')}
-                      >
-                        <Phone size={15} />
-                      </a>
+                      {product.showPhone !== false && product.sellerPhone && (
+                        <a
+                          href={`tel:${product.sellerPhone}`}
+                          className="btn-call-compact"
+                          title={t('callProducerAction')}
+                        >
+                          <Phone size={15} />
+                        </a>
+                      )}
                     </div>
                   </div>
 
-                  {/* Auxiliary Links */}
+                  {/* Auxiliary Links: Details & Optional Drive Video */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.65rem', paddingTop: '0.4rem', borderTop: '1px solid var(--card-border)', fontSize: '0.75rem' }}>
-                    {(product.videoUrl || product.fallbackDirectVideo) ? (
+                    <button
+                      onClick={() => setSelectedProductDetail(product)}
+                      style={{ color: 'var(--primary-forest)', fontWeight: '700' }}
+                    >
+                      {t('viewDetails')}
+                    </button>
+
+                    {Boolean(product.videoUrl && product.videoUrl.trim() && !product.videoUrl.includes('sample_drive_video')) && (
                       <button
                         onClick={() => setShowMakingMediaModal(product)}
-                        style={{ color: 'var(--primary-forest)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        style={{ color: 'var(--primary-emerald)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                       >
                         <Video size={13} />
-                        <span>{language === 'hi' ? 'ड्राइव वीडियो देखें' : 'Watch Drive Video'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setSelectedProductDetail(product)}
-                        style={{ color: 'var(--primary-forest)', fontWeight: '700' }}
-                      >
-                        {t('viewDetails')}
-                      </button>
-                    )}
-
-                    {product.inStock && (
-                      <button
-                        onClick={() => handleReportOutOfStock(product.id)}
-                        style={{ color: '#ef4444', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                        title="If seller told you stock is finished, report here"
-                      >
-                        <AlertTriangle size={12} />
-                        <span>{t('reportOutOfStock')}</span>
+                        <span>{language === 'hi' ? 'ड्राइव वीडियो' : 'Watch Video'}</span>
                       </button>
                     )}
                   </div>
@@ -513,7 +504,7 @@ export function BuyerMarketplace() {
                   alt={selectedProductDetail.title} 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                 />
-                {(selectedProductDetail.videoUrl || selectedProductDetail.fallbackDirectVideo) && (
+                {Boolean(selectedProductDetail.videoUrl && selectedProductDetail.videoUrl.trim() && !selectedProductDetail.videoUrl.includes('sample_drive_video')) && (
                   <button
                     onClick={() => setShowMakingMediaModal(selectedProductDetail)}
                     style={{
@@ -552,10 +543,18 @@ export function BuyerMarketplace() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: '800', color: '#b45309' }}>
-                  <Star size={16} fill="#f59e0b" color="#f59e0b" />
-                  <span>{selectedProductDetail.rating} / 5</span>
-                </div>
+                {/* Real Reviews Average Rating or 'New' */}
+                {selectedProductDetail.reviews && selectedProductDetail.reviews.length > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: '800', color: '#b45309' }}>
+                    <Star size={16} fill="#f59e0b" color="#f59e0b" />
+                    <span>{selectedProductDetail.rating} / 5</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: '500' }}>({selectedProductDetail.reviews.length})</span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--primary-forest)', background: '#ecfdf5', padding: '0.2rem 0.55rem', borderRadius: 'var(--radius-full)', fontWeight: '700' }}>
+                    ✨ {language === 'hi' ? 'नई लिस्टिंग' : language === 'pa' ? 'ਨਵੀਂ ਲਿਸਟਿੰਗ' : 'New Listing'}
+                  </span>
+                )}
               </div>
 
               {/* Freshness Expiry Info Box */}
@@ -589,7 +588,7 @@ export function BuyerMarketplace() {
                 </div>
               </div>
 
-              {/* Primary In-App Chat + Secondary WhatsApp & Call Buttons */}
+              {/* Primary In-App Chat + Secondary WhatsApp & Call Buttons (Honoring Privacy Toggles) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
                 <button
                   className="btn-chat-primary"
@@ -603,23 +602,27 @@ export function BuyerMarketplace() {
                   <span>{t('chatWithFarmer')}</span>
                 </button>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                  <button
-                    className="btn-whatsapp"
-                    style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                    onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
-                  >
-                    <MessageCircle size={16} />
-                    <span>{t('secondaryWhatsApp')}</span>
-                  </button>
-                  <a
-                    href={`tel:${selectedProductDetail.sellerPhone}`}
-                    className="btn-call"
-                    style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
-                  >
-                    <Phone size={15} />
-                    <span>{t('callProducer')}</span>
-                  </a>
+                <div style={{ display: 'grid', gridTemplateColumns: (selectedProductDetail.showWhatsApp !== false && selectedProductDetail.showPhone !== false && selectedProductDetail.sellerPhone) ? '1fr 1fr' : '1fr', gap: '0.6rem' }}>
+                  {selectedProductDetail.showWhatsApp !== false && (
+                    <button
+                      className="btn-whatsapp"
+                      style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                      onClick={() => trackWhatsAppInquiry(selectedProductDetail)}
+                    >
+                      <MessageCircle size={16} />
+                      <span>{t('secondaryWhatsApp')}</span>
+                    </button>
+                  )}
+                  {selectedProductDetail.showPhone !== false && selectedProductDetail.sellerPhone && (
+                    <a
+                      href={`tel:${selectedProductDetail.sellerPhone}`}
+                      className="btn-call"
+                      style={{ justifyContent: 'center', padding: '0.65rem 0.75rem', fontSize: '0.82rem' }}
+                    >
+                      <Phone size={15} />
+                      <span>{t('callProducer')}</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
