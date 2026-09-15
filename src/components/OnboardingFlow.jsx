@@ -140,13 +140,14 @@ export function OnboardingFlow() {
       const res = await sendFirebasePhoneOtp(formData.phone);
       setLoading(false);
       if (res.success) {
+        setAuthError('');
         submitRegistrationAndRequestOtp(formData);
       } else {
-        submitRegistrationAndRequestOtp(formData);
         setAuthError(res.error || (language === 'hi' ? 'SMS OTP भेजने में विफल' : 'Failed to send SMS OTP'));
       }
     } else {
       setLoading(false);
+      setAuthError('');
       submitRegistrationAndRequestOtp(formData);
     }
   };
@@ -190,21 +191,19 @@ export function OnboardingFlow() {
       const res = await sendFirebasePhoneOtp(loginPhone);
       setLoading(false);
       if (res.success) {
+        setAuthError('');
         submitRegistrationAndRequestOtp({
           phone: loginPhone,
           isOtpLogin: true
         });
       } else {
-        submitRegistrationAndRequestOtp({
-          phone: loginPhone,
-          isOtpLogin: true
-        });
         setAuthError(res.error || (language === 'hi' ? 'SMS OTP भेजने में विफल' : 'Failed to send SMS OTP'));
       }
     } else {
       setLoading(false);
       const res = requestLoginOtp(loginPhone);
       if (res.success) {
+        setAuthError('');
         submitRegistrationAndRequestOtp({
           phone: loginPhone,
           isOtpLogin: true
@@ -854,7 +853,7 @@ export function OnboardingFlow() {
               </div>
               <h2 className="step-main-title">{t('step4Title')}</h2>
               <p className="step-sub-title">
-                {t('otpSentTo')} <strong>+91 {formData.phone || loginPhone || '9876543210'}</strong>
+                {t('otpSentTo')} <strong>+91 {(formData.phone || loginPhone || '9876543210').replace(/\D/g, '').replace(/^91/, '')}</strong>
               </p>
             </div>
 

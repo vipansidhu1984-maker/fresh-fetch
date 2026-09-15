@@ -47,7 +47,7 @@ export const translations = {
     orDemoProfiles: "Or continue with 1-Tap Demo",
     
     // OTP Screen
-    otpSentTo: "Code sent to +91",
+    otpSentTo: "Code sent to",
     resendOtp: "Resend Code",
     verifyAndProceed: "Verify & Enter App",
     simulatedSms: "SMS Simulator: Your OTP is",
@@ -263,7 +263,7 @@ export const translations = {
     orDemoProfiles: "या 1-क्लिक डेमो से शुरू करें",
     
     // OTP Screen
-    otpSentTo: "OTP भेजा गया: +91",
+    otpSentTo: "OTP भेजा गया:",
     resendOtp: "OTP दोबारा भेजें",
     verifyAndProceed: "सत्यापित करें और ऐप खोलें",
     simulatedSms: "SMS सिमुलेटर: आपका OTP है",
@@ -479,7 +479,7 @@ export const translations = {
     orDemoProfiles: "ਜਾਂ 1-ਕਲਿੱਕ ਡੈਮੋ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ",
     
     // OTP Screen
-    otpSentTo: "OTP ਭੇਜਿਆ ਗਿਆ: +91",
+    otpSentTo: "OTP ਭੇਜਿਆ ਗਿਆ:",
     resendOtp: "OTP ਦੁਬਾਰਾ ਭੇਜੋ",
     verifyAndProceed: "ਤਸਦੀਕ ਕਰੋ ਤੇ ਐਪ ਖੋਲ੍ਹੋ",
     simulatedSms: "SMS ਸਿਮੂਲੇਟਰ: ਤੁਹਾਡਾ OTP ਹੈ",

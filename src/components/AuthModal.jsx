@@ -478,7 +478,7 @@ export function AuthModal() {
               ) : (
                 <form onSubmit={handleVerifyOtpLogin}>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
-                    {t('otpSentTo')} <strong>+91 {phone}</strong>
+                    {t('otpSentTo')} <strong>+91 {(phone || '').replace(/\D/g, '').replace(/^91/, '')}</strong>
                   </p>
 
                   <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
