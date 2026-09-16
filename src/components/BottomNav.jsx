@@ -6,6 +6,7 @@ import {
   PlusCircle, 
   Package, 
   MessageCircle, 
+  MessageSquare,
   Heart, 
   User, 
   Sparkles,
@@ -53,10 +54,28 @@ export function BottomNav() {
     return false;
   });
 
-  // Count unread WhatsApp inquiries and unread chat messages
+  // Count unread WhatsApp inquiries and unread chat messages for farmer
   const unreadInquiries = myInquiries.filter((inq) => !(readInquiryIds || []).includes(inq.id));
   const unreadChatsCount = myChats.reduce((sum, c) => sum + (c.unreadCountFarmer || 0), 0);
   const totalUnreadLeads = unreadInquiries.length + unreadChatsCount;
+
+  // Buyer chats and unread count
+  const currentBuyerPhone = currentUser?.phone ? String(currentUser.phone).replace(/\D/g, '') : '';
+  const currentBuyerPhone10 = currentBuyerPhone.length >= 10 ? currentBuyerPhone.slice(-10) : currentBuyerPhone;
+
+  const buyerChats = (chats || []).filter((c) => {
+    if (!c) return false;
+    if (currentUser?.id && c.buyerId === currentUser.id) return true;
+    if (currentBuyerPhone10) {
+      const bPhone = c.buyerPhone ? String(c.buyerPhone).replace(/\D/g, '') : '';
+      const bPhone10 = bPhone.length >= 10 ? bPhone.slice(-10) : bPhone;
+      if (bPhone10 && bPhone10 === currentBuyerPhone10) return true;
+    }
+    if (!currentUser && (c.buyerId?.startsWith('guest-') || c.buyerRole === 'buyer' || !c.sellerId)) return true;
+    return false;
+  });
+
+  const unreadBuyerMessages = buyerChats.reduce((sum, c) => sum + (Number(c.unreadCountBuyer) || 0), 0);
 
   return (
     <nav className="mobile-bottom-nav">
@@ -106,7 +125,7 @@ export function BottomNav() {
           </button>
         </div>
       ) : (
-        /* Buyer / Consumer Bottom Tabs (Marketplace, Wishlist, Profile) */
+        /* Buyer / Consumer Bottom Tabs (Marketplace, Chats, Wishlist, Profile) */
         <div className="bottom-nav-inner">
           <button
             className={`nav-tab-btn ${activeTab === 'marketplace' ? 'active' : ''}`}
@@ -114,6 +133,18 @@ export function BottomNav() {
           >
             <ShoppingBag size={20} />
             <span>{t('navMarketplace')}</span>
+          </button>
+
+          <button
+            className={`nav-tab-btn ${activeTab === 'chats' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chats')}
+            style={{ position: 'relative' }}
+          >
+            <MessageSquare size={20} />
+            {unreadBuyerMessages > 0 && (
+              <span className="nav-badge-count" style={{ background: '#22c55e' }}>{unreadBuyerMessages}</span>
+            )}
+            <span>{t('navChats')}</span>
           </button>
 
           <button

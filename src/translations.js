@@ -172,6 +172,7 @@ export const translations = {
     
     // Bottom Nav
     navMarketplace: "Market",
+    navChats: "Chats",
     navAdd: "Add Item",
     navMyListings: "Listings",
     navInquiries: "Leads",
@@ -180,6 +181,8 @@ export const translations = {
     navStory: "Mission",
 
     // In-App Chat
+    buyerChatsTitle: "Farmer Chats & History",
+    buyerChatsSubtitle: "Direct conversations with verified local farmers",
     chatWithFarmer: "Chat with Farmer",
     inAppChat: "In-App Chat",
     typeMessagePlaceholder: "Type your message or question...",
@@ -395,6 +398,7 @@ export const translations = {
     
     // Bottom Nav
     navMarketplace: "बाज़ार",
+    navChats: "चैट",
     navAdd: "जोड़ें",
     navMyListings: "उत्पाद",
     navInquiries: "संपर्क",
@@ -403,6 +407,8 @@ export const translations = {
     navStory: "मिशन",
 
     // In-App Chat
+    buyerChatsTitle: "किसान चैट व बातचीत",
+    buyerChatsSubtitle: "क्षेत्र के सत्यापित किसानों से सीधी बातचीत व आर्डर",
     chatWithFarmer: "किसान से चैट करें",
     inAppChat: "इन-ऐप चैट",
     typeMessagePlaceholder: "अपना संदेश या सवाल लिखें...",
@@ -618,6 +624,7 @@ export const translations = {
     
     // Bottom Nav
     navMarketplace: "ਮਾਰਕੀਟ",
+    navChats: "ਚੈਟ",
     navAdd: "ਜੋੜੋ",
     navMyListings: "ਉਤਪਾਦ",
     navInquiries: "ਸੰਪਰਕ",
@@ -626,6 +633,8 @@ export const translations = {
     navStory: "ਮਿਸ਼ਨ",
 
     // In-App Chat
+    buyerChatsTitle: "ਕਿਸਾਨ ਚੈਟ ਤੇ ਗੱਲਬਾਤ",
+    buyerChatsSubtitle: "ਸਥਾਨਕ ਕਿਸਾਨਾਂ ਨਾਲ ਸਿੱਧੀ ਗੱਲਬਾਤ ਤੇ ਸੁਨੇਹੇ",
     chatWithFarmer: "ਕਿਸਾਨ ਨਾਲ ਚੈਟ ਕਰੋ",
     inAppChat: "ਇਨ-ਐਪ ਚੈਟ",
     typeMessagePlaceholder: "ਆਪਣਾ ਸੁਨੇਹਾ ਜਾਂ ਸਵਾਲ ਲਿਖੋ...",

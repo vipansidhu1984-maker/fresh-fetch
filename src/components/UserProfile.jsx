@@ -13,6 +13,7 @@ import {
   Globe, 
   Package, 
   MessageCircle, 
+  MessageSquare,
   Heart, 
   HelpCircle,
   RefreshCw,
@@ -33,12 +34,28 @@ export function UserProfile() {
     switchLanguage, 
     products, 
     inquiries, 
+    chats,
     wishlist, 
     setActiveTab, 
     setShowAboutModal, 
     setShowPrivacyModal,
     t 
   } = useApp();
+
+  const currentBuyerPhone = currentUser?.phone ? String(currentUser.phone).replace(/\D/g, '') : '';
+  const currentBuyerPhone10 = currentBuyerPhone.length >= 10 ? currentBuyerPhone.slice(-10) : currentBuyerPhone;
+
+  const buyerChats = (chats || []).filter((c) => {
+    if (!c) return false;
+    if (currentUser?.id && c.buyerId === currentUser.id) return true;
+    if (currentBuyerPhone10) {
+      const bPhone = c.buyerPhone ? String(c.buyerPhone).replace(/\D/g, '') : '';
+      const bPhone10 = bPhone.length >= 10 ? bPhone.slice(-10) : bPhone;
+      if (bPhone10 && bPhone10 === currentBuyerPhone10) return true;
+    }
+    if (!currentUser && (c.buyerId?.startsWith('guest-') || c.buyerRole === 'buyer' || !c.sellerId)) return true;
+    return false;
+  });
 
   const myProducts = products.filter(
     (p) => {
@@ -330,26 +347,48 @@ export function UserProfile() {
           </div>
         ) : (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div style={{ background: '#fef2f2', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid #fecaca' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#ef4444' }}>{wishlist.length}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>{t('navWishlist')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
+              <div 
+                onClick={() => setActiveTab('chats')}
+                style={{ background: '#f0fdf4', padding: '0.75rem 0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid #bbf7d0', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--primary-forest)' }}>{buyerChats.length}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>{t('navChats')}</div>
               </div>
-              <div style={{ background: '#ecfdf5', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid #a7f3d0' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{buyerInquiries.length}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Orders Contacted</div>
+
+              <div 
+                onClick={() => setActiveTab('wishlist')}
+                style={{ background: '#fef2f2', padding: '0.75rem 0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid #fecaca', cursor: 'pointer', textAlign: 'center' }}
+              >
+                <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#ef4444' }}>{wishlist.length}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>{t('navWishlist')}</div>
+              </div>
+
+              <div style={{ background: '#ecfdf5', padding: '0.75rem 0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid #a7f3d0', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--whatsapp-dark)' }}>{buyerInquiries.length}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>WhatsApp</div>
               </div>
             </div>
 
-            <button
-              onClick={() => setActiveTab('marketplace')}
-              className="btn-primary"
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              <ShoppingBag size={16} />
-              <span>{language === 'hi' ? 'बाज़ार में उत्पाद देखें' : 'Browse Marketplace'}</span>
-              <ArrowRight size={15} />
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+              <button
+                onClick={() => setActiveTab('chats')}
+                className="btn-chat-primary"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', padding: '0.65rem' }}
+              >
+                <MessageSquare size={16} />
+                <span>{language === 'hi' ? 'मेरी किसान चैट' : language === 'pa' ? 'ਮੇਰੀ ਕਿਸਾਨ ਚੈਟ' : 'My Farmer Chats'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('marketplace')}
+                className="btn-primary"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', padding: '0.65rem' }}
+              >
+                <ShoppingBag size={16} />
+                <span>{language === 'hi' ? 'बाज़ार देखें' : 'Marketplace'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

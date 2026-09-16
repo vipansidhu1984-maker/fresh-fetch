@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { SellerDashboard } from './components/SellerDashboard';
 import { BuyerMarketplace } from './components/BuyerMarketplace';
+import { BuyerChats } from './components/BuyerChats';
 import { UserProfile } from './components/UserProfile';
 import { BottomNav } from './components/BottomNav';
 import { AboutModal } from './components/AboutModal';
@@ -45,6 +46,8 @@ function MainLayout() {
       <main className="main-content">
         {activeTab === 'profile' ? (
           <UserProfile />
+        ) : activeTab === 'chats' ? (
+          <BuyerChats />
         ) : activeTab === 'marketplace' || activeTab === 'wishlist' ? (
           <BuyerMarketplace />
         ) : role === 'producer' || activeTab === 'listings' || activeTab === 'inquiries' ? (

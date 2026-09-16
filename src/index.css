@@ -1917,4 +1917,21 @@ body.dark-mode .settings-header-btn {
   color: #4ade80;
 }
 
+/* Buyer Chat History Cards */
+.buyer-chat-card-hover {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+}
+
+.buyer-chat-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-emerald) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-theme="dark"] .buyer-chat-card-hover,
+body.dark-mode .buyer-chat-card-hover {
+  background: #16241b !important;
+  border-color: var(--card-border) !important;
+}
+
 
