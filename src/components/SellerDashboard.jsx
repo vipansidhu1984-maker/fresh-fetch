@@ -41,6 +41,7 @@ export function SellerDashboard() {
     activeTab,
     setActiveTab,
     setShowAddProductModal, 
+    maskPhoneNumber,
     t, 
     language 
   } = useApp();
@@ -144,6 +145,7 @@ export function SellerDashboard() {
               width: '52px', 
               height: '52px', 
               borderRadius: 'var(--radius-md)', 
+              overflow: 'hidden',
               background: '#dcfce7', 
               color: 'var(--primary-forest)',
               display: 'flex',
@@ -152,7 +154,18 @@ export function SellerDashboard() {
               flexShrink: 0
             }}
           >
-            {isLeadsView ? <MessageCircle size={28} /> : <Tractor size={28} />}
+            {isLeadsView ? (
+              <MessageCircle size={28} />
+            ) : currentUser?.avatar ? (
+              <img 
+                src={currentUser.avatar} 
+                alt={currentUser.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <Tractor size={28} />
+            )}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -314,7 +327,7 @@ export function SellerDashboard() {
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
                             <div style={{ fontWeight: '800', fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                              {chat.buyerName}
+                              {chat.buyerName} {chat.buyerPhone && <span style={{ fontWeight: '600', fontSize: '0.76rem', color: 'var(--text-muted)' }}>({maskPhoneNumber(chat.buyerPhone)})</span>}
                             </div>
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                               {chat.lastMessageTime}
@@ -401,7 +414,7 @@ export function SellerDashboard() {
                             <span>•</span>
                             <span>📦 Qty: <strong>{inq.qty || '1 unit'}</strong></span>
                             <span>•</span>
-                            <span>📱 +91 {inq.buyerPhone}</span>
+                            <span>📱 {maskPhoneNumber(inq.buyerPhone)}</span>
                           </div>
                         </div>
                       </div>
@@ -518,8 +531,8 @@ export function SellerDashboard() {
                         )}
                       </div>
 
-                      {/* Quantity Edit */}
-                      <div style={{ marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem' }}>
+                      {/* Live Stock Quick Controls & Edit */}
+                      <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem' }}>
                         {editingQtyId === product.id ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             <input
@@ -538,18 +551,63 @@ export function SellerDashboard() {
                             </button>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)' }}>
-                            <span>📦 Stock: <strong>{product.availableQty || 'Available'}</strong></span>
-                            <button
-                              onClick={() => {
-                                setEditingQtyId(product.id);
-                                setNewQtyVal(product.availableQty || '25 kg');
-                              }}
-                              style={{ color: 'var(--accent-gold)', padding: '0.1rem', fontWeight: '700' }}
-                              title={t('editQty')}
-                            >
-                              <Edit3 size={12} />
-                            </button>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', background: '#f8fafc', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)' }}>
+                              <span>📦 Stock: <strong>{product.availableQty || 'Available'}</strong></span>
+                              <button
+                                onClick={() => {
+                                  setEditingQtyId(product.id);
+                                  setNewQtyVal(product.availableQty || '25 kg');
+                                }}
+                                style={{ color: 'var(--accent-gold)', padding: '0.1rem', fontWeight: '700' }}
+                                title={t('editQty')}
+                              >
+                                <Edit3 size={12} />
+                              </button>
+                            </div>
+
+                            {/* Quick Live Stock Steppers */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <button
+                                onClick={() => {
+                                  const currentNum = parseInt(String(product.availableQty).replace(/\D/g, '')) || 10;
+                                  const unit = String(product.availableQty || 'kg').replace(/[\d\s]/g, '') || product.unit || 'kg';
+                                  const newNum = Math.max(0, currentNum - 5);
+                                  updateProductQuantity(product.id, `${newNum} ${unit}`);
+                                }}
+                                style={{ background: '#e2e8f0', color: '#334155', padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}
+                                title="Decrease stock by 5"
+                              >
+                                -5
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const currentNum = parseInt(String(product.availableQty).replace(/\D/g, '')) || 0;
+                                  const unit = String(product.availableQty || 'kg').replace(/[\d\s]/g, '') || product.unit || 'kg';
+                                  const newNum = currentNum + 5;
+                                  updateProductQuantity(product.id, `${newNum} ${unit}`);
+                                }}
+                                style={{ background: '#dcfce7', color: '#166534', padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}
+                                title="Increase stock by 5"
+                              >
+                                +5
+                              </button>
+                              <button
+                                onClick={() => toggleProductStock(product.id)}
+                                style={{ 
+                                  background: product.inStock !== false ? '#dcfce7' : '#fee2e2', 
+                                  color: product.inStock !== false ? '#166534' : '#ef4444', 
+                                  padding: '0.15rem 0.45rem', 
+                                  borderRadius: '4px', 
+                                  fontSize: '0.7rem', 
+                                  fontWeight: '800',
+                                  cursor: 'pointer'
+                                }}
+                                title="Toggle In Stock / Out of Stock status"
+                              >
+                                {product.inStock !== false ? '● In Stock' : '○ Out of Stock'}
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>

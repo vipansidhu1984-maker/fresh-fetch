@@ -13,7 +13,8 @@ import {
   ExternalLink,
   MapPin,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 
 export function ChatModal() {
@@ -22,6 +23,8 @@ export function ChatModal() {
     setShowChatModal,
     activeChat,
     sendMessage,
+    deleteChatMessage,
+    maskPhoneNumber,
     role,
     currentUser,
     registeredUsers,
@@ -75,7 +78,7 @@ export function ChatModal() {
     : (activeChat.sellerName?.split('(')[0]?.trim() || 'Farmer');
 
   const counterpartSubtitle = isFarmer
-    ? (activeChat.buyerPhone ? `Customer • ${activeChat.buyerPhone}` : 'Verified Buyer')
+    ? (activeChat.buyerPhone ? `Customer • ${maskPhoneNumber(activeChat.buyerPhone)}` : 'Verified Buyer')
     : (activeChat.sellerLocation || 'Hanumangarh');
 
   const handleSend = (e) => {
@@ -103,6 +106,14 @@ export function ChatModal() {
         t('chipSample')
       ];
 
+  const counterpartUser = (registeredUsers || []).find(
+    (u) =>
+      (isFarmer ? (u.id === activeChat.buyerId || u.phone === activeChat.buyerPhone) : (u.id === activeChat.sellerId || u.phone === activeChat.sellerPhone))
+  );
+  const counterpartAvatar = isFarmer
+    ? (activeChat.buyerAvatar || counterpartUser?.avatar)
+    : (activeChat.sellerAvatar || counterpartUser?.avatar);
+
   return (
     <div className="modal-overlay" onClick={() => setShowChatModal(false)}>
       <div 
@@ -123,8 +134,27 @@ export function ChatModal() {
         {/* Chat Modal Header */}
         <div className="chat-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-            <div className="chat-farmer-avatar" style={{ background: isFarmer ? '#e0f2fe' : '#dcfce7', color: isFarmer ? '#0284c7' : 'var(--primary-forest)' }}>
-              {counterpartName?.charAt(0) || (isFarmer ? 'C' : 'F')}
+            <div 
+              className="chat-farmer-avatar" 
+              style={{ 
+                background: isFarmer ? '#e0f2fe' : '#dcfce7', 
+                color: isFarmer ? '#0284c7' : 'var(--primary-forest)',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {counterpartAvatar ? (
+                <img 
+                  src={counterpartAvatar} 
+                  alt={counterpartName} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              ) : (
+                counterpartName?.charAt(0) || (isFarmer ? 'C' : 'F')
+              )}
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -266,8 +296,27 @@ export function ChatModal() {
                 className={`chat-message-row ${isMe ? 'my-message' : 'other-message'}`}
               >
                 {!isMe && (
-                  <div className="chat-msg-avatar" style={{ background: isFarmer ? '#e0f2fe' : '#dcfce7', color: isFarmer ? '#0284c7' : 'var(--primary-forest)' }}>
-                    {msg.senderName?.charAt(0) || (isFarmer ? 'B' : 'F')}
+                  <div 
+                    className="chat-msg-avatar" 
+                    style={{ 
+                      background: isFarmer ? '#e0f2fe' : '#dcfce7', 
+                      color: isFarmer ? '#0284c7' : 'var(--primary-forest)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {counterpartAvatar ? (
+                      <img 
+                        src={counterpartAvatar} 
+                        alt={msg.senderName} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : (
+                      msg.senderName?.charAt(0) || (isFarmer ? 'B' : 'F')
+                    )}
                   </div>
                 )}
                 
@@ -278,16 +327,40 @@ export function ChatModal() {
                     </div>
                   )}
                   <p className="chat-msg-text">{msg.text}</p>
-                  <div className="chat-msg-footer">
+                  <div className="chat-msg-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.35rem' }}>
                     <span className="chat-msg-time">{msg.time}</span>
                     {isMe && (
-                      <span className="chat-msg-status">
-                        {msg.status === 'read' ? (
-                          <CheckCheck size={14} color="#38bdf8" />
-                        ) : (
-                          <Check size={13} color="rgba(255,255,255,0.7)" />
-                        )}
-                      </span>
+                      <>
+                        <span className="chat-msg-status">
+                          {msg.status === 'read' ? (
+                            <CheckCheck size={14} color="#38bdf8" />
+                          ) : (
+                            <Check size={13} color="rgba(255,255,255,0.7)" />
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(language === 'hi' ? 'क्या आप इस संदेश को हमेशा के लिए हटाना चाहते हैं?' : (language === 'pa' ? 'ਕੀ ਤੁਸੀਂ ਇਹ ਸੁਨੇਹਾ ਹਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ?' : 'Delete this message for everyone?'))) {
+                              deleteChatMessage(activeChat.id, msg.id);
+                            }
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '0.1rem 0.2rem',
+                            color: 'rgba(255,255,255,0.75)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center'
+                          }}
+                          title="Delete message"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

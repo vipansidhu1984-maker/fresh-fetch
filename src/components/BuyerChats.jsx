@@ -220,41 +220,62 @@ export function BuyerChats() {
               >
                 {/* Left: Avatar + Details */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flex: 1, minWidth: '240px' }}>
-                  {/* Farmer Avatar with Online/Unread Dot */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div 
-                      style={{ 
-                        width: '52px', 
-                        height: '52px', 
-                        borderRadius: 'var(--radius-full)', 
-                        background: '#dcfce7', 
-                        color: 'var(--primary-forest)', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontWeight: '800', 
-                        fontSize: '1.25rem',
-                        boxShadow: 'var(--shadow-sm)',
-                        border: '2px solid #ffffff'
-                      }}
-                    >
-                      {farmerDisplayName.charAt(0) || 'F'}
-                    </div>
-                    {hasUnread && (
-                      <span 
-                        style={{ 
-                          position: 'absolute', 
-                          top: '-2px', 
-                          right: '-2px', 
-                          width: '14px', 
-                          height: '14px', 
-                          background: '#22c55e', 
-                          borderRadius: '50%', 
-                          border: '2.5px solid #ffffff' 
-                        }} 
-                      />
-                    )}
-                  </div>
+                  {/* Farmer Avatar with Online/Unread Dot & Profile Photo */}
+                  {(() => {
+                    const sellerUser = (registeredUsers || []).find(
+                      (u) =>
+                        (u.id && u.id === chat.sellerId) ||
+                        (u.phone && (u.phone === chat.sellerPhone || `91${u.phone}` === chat.sellerWhatsApp))
+                    );
+                    const farmerAvatar = chat.sellerAvatar || sellerUser?.avatar;
+
+                    return (
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div 
+                          style={{ 
+                            width: '52px', 
+                            height: '52px', 
+                            borderRadius: 'var(--radius-full)', 
+                            overflow: 'hidden',
+                            background: '#dcfce7', 
+                            color: 'var(--primary-forest)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontWeight: '800', 
+                            fontSize: '1.25rem',
+                            boxShadow: 'var(--shadow-sm)',
+                            border: '2px solid #ffffff'
+                          }}
+                        >
+                          {farmerAvatar ? (
+                            <img 
+                              src={farmerAvatar} 
+                              alt={farmerDisplayName} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            farmerDisplayName.charAt(0) || 'F'
+                          )}
+                        </div>
+                        {hasUnread && (
+                          <span 
+                            style={{ 
+                              position: 'absolute', 
+                              top: '-2px', 
+                              right: '-2px', 
+                              width: '14px', 
+                              height: '14px', 
+                              background: '#22c55e', 
+                              borderRadius: '50%', 
+                              border: '2.5px solid #ffffff' 
+                            }} 
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Farmer & Message Metadata */}
                   <div style={{ flex: 1, minWidth: 0 }}>

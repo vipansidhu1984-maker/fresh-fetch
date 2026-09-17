@@ -625,6 +625,86 @@ export async function sendChatMessageToCloud(chatId, message, chatContext = null
 }
 
 /**
+ * Delete an individual chat message in Firestore and broadcast to open tabs
+ */
+export async function deleteChatMessageFromCloud(chatId, messageId) {
+  if (!chatId || !messageId) return { success: false, offline: true };
+
+  // 1. Broadcast immediately to all open local tabs/windows
+  broadcastSync('DELETE_MESSAGE', { chatId, messageId });
+
+  // 2. Save directly to Cloud Firestore
+  if (isFirebaseConfigured && db) {
+    try {
+      const chatDoc = doc(db, 'chats', chatId);
+      const snap = await getDoc(chatDoc);
+      if (snap.exists()) {
+        const data = snap.data();
+        const messages = Array.isArray(data.messages) ? data.messages : [];
+        const updatedMessages = messages.filter((m) => m && m.id !== messageId);
+        
+        // Recompute last message
+        const lastMsg = updatedMessages.length > 0 ? updatedMessages[updatedMessages.length - 1] : null;
+        
+        await updateDoc(chatDoc, {
+          messages: updatedMessages,
+          lastMessage: lastMsg ? lastMsg.text : '',
+          lastMessageTime: lastMsg ? (lastMsg.time || '') : '',
+          updatedAt: serverTimestamp()
+        });
+        console.log(`✅ Message ${messageId} deleted from Cloud Firestore chat ${chatId}.`);
+      }
+      return { success: true };
+    } catch (err) {
+      console.error("Error deleting message from Firestore:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { success: true };
+}
+
+/**
+ * Atomically update multiple products of a farmer (e.g. avatar, privacy toggles, seller details)
+ */
+export async function updateProductsBulkInCloud(farmerPhone, updates) {
+  if (!farmerPhone || !updates) return { success: false, offline: true };
+  
+  const cleanPhone = String(farmerPhone).replace(/\D/g, '');
+  const phone10 = cleanPhone.slice(-10);
+
+  broadcastSync('UPDATE_PRODUCTS_BULK', { farmerPhone: cleanPhone, updates });
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const sanitized = sanitizeForFirestore(updates);
+      const activeDocRef = doc(db, 'users', 'global_active_products_sync');
+      const activeSnap = await getDoc(activeDocRef);
+      if (activeSnap.exists() && Array.isArray(activeSnap.data()?.products)) {
+        const currList = activeSnap.data().products;
+        const updatedList = currList.map((p) => {
+          if (!p) return p;
+          const pPhone = p.sellerPhone ? String(p.sellerPhone).replace(/\D/g, '').slice(-10) : '';
+          const isMatch = p.sellerPhone === cleanPhone || pPhone === phone10 || p.sellerId === cleanPhone;
+          return isMatch ? { ...p, ...sanitized } : p;
+        });
+        await setDoc(activeDocRef, {
+          products: updatedList,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        console.log(`✅ Bulk products for farmer ${cleanPhone} updated in Cloud Firestore.`);
+      }
+      return { success: true };
+    } catch (err) {
+      console.warn("Firestore bulk update products error:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { success: true };
+}
+
+/**
  * Create a new chat thread in Firestore and broadcast
  */
 export async function createChatInCloud(chatData) {
@@ -686,22 +766,28 @@ export async function markChatReadInCloud(chatId, role = 'producer') {
 // ============================================================================
 
 export async function saveUserToCloud(user) {
-  if (!isFirebaseConfigured || !db || !user?.phone) return { success: false, offline: true };
+  if (!user?.phone) return { success: false, offline: true };
 
-  try {
-    const cleanPhone = user.phone.replace(/\D/g, '');
-    const userDoc = doc(db, 'users', cleanPhone);
-    const sanitized = sanitizeForFirestore(user);
-    await setDoc(userDoc, {
-      ...sanitized,
-      phone: cleanPhone,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-    return { success: true };
-  } catch (err) {
-    console.error("Error saving user to Firestore:", err);
-    return { success: false, error: err.message };
+  const cleanPhone = user.phone.replace(/\D/g, '');
+  broadcastSync('UPDATE_USER', { phone: cleanPhone, user });
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const userDoc = doc(db, 'users', cleanPhone);
+      const sanitized = sanitizeForFirestore(user);
+      await setDoc(userDoc, {
+        ...sanitized,
+        phone: cleanPhone,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      return { success: true };
+    } catch (err) {
+      console.error("Error saving user to Firestore:", err);
+      return { success: false, error: err.message };
+    }
   }
+
+  return { success: true };
 }
 
 export async function fetchUserFromCloud(phone) {
@@ -718,6 +804,33 @@ export async function fetchUserFromCloud(phone) {
   } catch (err) {
     console.error("Error fetching user from Firestore:", err);
     return null;
+  }
+}
+
+/**
+ * Subscribe to all registered users from Cloud Firestore (for avatars & privacy toggles live sync)
+ */
+export function subscribeToCloudUsers(onUpdate) {
+  if (!isFirebaseConfigured || !db) return () => {};
+
+  try {
+    const usersCol = collection(db, 'users');
+    return onSnapshot(usersCol, (snapshot) => {
+      const users = [];
+      snapshot.docs.forEach((d) => {
+        // Exclude system documents
+        if (d.id === 'global_active_products_sync' || d.id === 'global_deleted_products_sync') return;
+        users.push({ id: d.id, ...d.data() });
+      });
+      if (users.length > 0) {
+        onUpdate(users);
+      }
+    }, (err) => {
+      console.warn("Users subscription warning:", err?.message || err);
+    });
+  } catch (err) {
+    console.warn("Failed to subscribe to cloud users:", err);
+    return () => {};
   }
 }
 

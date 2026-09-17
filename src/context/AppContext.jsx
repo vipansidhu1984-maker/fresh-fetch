@@ -19,18 +19,22 @@ import {
   saveProductToCloud,
   deleteProductFromCloud,
   updateProductInCloud,
+  updateProductsBulkInCloud,
   syncBus,
   saveUserToCloud,
   fetchUserFromCloud,
+  subscribeToCloudUsers,
   subscribeToUserChats,
   sendChatMessageToCloud,
   createChatInCloud,
   markChatReadInCloud,
+  deleteChatMessageFromCloud,
   saveInquiryToCloud,
   sendFirebasePhoneOtp,
   verifyFirebasePhoneOtp,
   setupRecaptcha
 } from '../services/firebase';
+import { maskPhoneNumber } from '../utils/maskUtils';
 
 const AppContext = createContext();
 
@@ -249,6 +253,7 @@ export function AppProvider({ children }) {
     let unsubscribeProducts = () => {};
     let unsubscribeDeleted = () => {};
     let unsubscribeChats = () => {};
+    let unsubscribeUsers = () => {};
 
     // 1. Initial One-time Direct Cloud Fetch
     fetchCloudDeletedProductsOnce().then((cloudDeletedIds) => {
@@ -306,7 +311,21 @@ export function AppProvider({ children }) {
       }
     });
 
-    // 4. Instant Local & Cross-Tab Broadcast Channel Listener
+    // 4. Real-time User Profiles & Privacy Live Sync (Firestore)
+    if (isFirebaseConfigured) {
+      unsubscribeUsers = subscribeToCloudUsers((cloudUsers) => {
+        if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+          setRegisteredUsers((prev) => {
+            const map = new Map();
+            (prev || []).forEach((u) => map.set(u.id || u.phone, u));
+            cloudUsers.forEach((u) => map.set(u.id || u.phone, { ...map.get(u.id || u.phone), ...u }));
+            return Array.from(map.values());
+          });
+        }
+      });
+    }
+
+    // 5. Instant Local & Cross-Tab Broadcast Channel Listener
     const handleSyncMessage = (event) => {
       if (!event || !event.data) return;
       const { action, payload } = event.data;
@@ -327,6 +346,24 @@ export function AppProvider({ children }) {
         setProducts((prev) =>
           (prev || []).map((p) => (String(p.id) === String(payload.productId) ? { ...p, ...payload.updates } : p))
         );
+      } else if (action === 'UPDATE_PRODUCTS_BULK' && payload && payload.farmerPhone && payload.updates) {
+        const { farmerPhone, updates } = payload;
+        const cleanPhone = String(farmerPhone).replace(/\D/g, '').slice(-10);
+        setProducts((prev) =>
+          (prev || []).map((p) => {
+            if (!p) return p;
+            const pPhone = p.sellerPhone ? String(p.sellerPhone).replace(/\D/g, '').slice(-10) : '';
+            const isMatch = p.sellerPhone === farmerPhone || pPhone === cleanPhone || p.sellerId === farmerPhone;
+            return isMatch ? { ...p, ...updates } : p;
+          })
+        );
+      } else if (action === 'UPDATE_USER' && payload && payload.user) {
+        setRegisteredUsers((prev) => {
+          const map = new Map();
+          (prev || []).forEach((u) => map.set(u.id || u.phone, u));
+          map.set(payload.user.id || payload.user.phone, payload.user);
+          return Array.from(map.values());
+        });
       } else if (action === 'CREATE_CHAT' && payload && payload.id) {
         setChats((prev) => {
           if ((prev || []).some((c) => c.id === payload.id)) {
@@ -377,6 +414,32 @@ export function AppProvider({ children }) {
             messages: isMsgAlready ? curr.messages : [...(curr.messages || []), message]
           };
         });
+      } else if (action === 'DELETE_MESSAGE' && payload && payload.chatId && payload.messageId) {
+        const { chatId, messageId } = payload;
+        setChats((prev) =>
+          (prev || []).map((c) => {
+            if (c.id !== chatId) return c;
+            const updatedMsgs = (c.messages || []).filter((m) => m && m.id !== messageId);
+            const lastMsg = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1] : null;
+            return {
+              ...c,
+              messages: updatedMsgs,
+              lastMessage: lastMsg ? lastMsg.text : '',
+              lastMessageTime: lastMsg ? (lastMsg.time || '') : ''
+            };
+          })
+        );
+        setActiveChat((curr) => {
+          if (!curr || curr.id !== chatId) return curr;
+          const updatedMsgs = (curr.messages || []).filter((m) => m && m.id !== messageId);
+          const lastMsg = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1] : null;
+          return {
+            ...curr,
+            messages: updatedMsgs,
+            lastMessage: lastMsg ? lastMsg.text : '',
+            lastMessageTime: lastMsg ? (lastMsg.time || '') : ''
+          };
+        });
       } else if (action === 'MARK_CHAT_READ' && payload && payload.chatId) {
         const { chatId, role: readerRole } = payload;
         const isFarmer = readerRole === 'producer';
@@ -405,7 +468,7 @@ export function AppProvider({ children }) {
       syncBus.addEventListener('message', handleSyncMessage);
     }
 
-    // 5. Live User Chats Subscription
+    // 6. Live User Chats Subscription
     if (isFirebaseConfigured && (currentUser?.id || currentUser?.phone)) {
       unsubscribeChats = subscribeToUserChats(currentUser, role || 'buyer', (cloudChats) => {
         if (cloudChats && Array.isArray(cloudChats)) {
@@ -428,7 +491,7 @@ export function AppProvider({ children }) {
       });
     }
 
-    // 6. Cross-Tab Local Storage Synchronization
+    // 7. Cross-Tab Local Storage Synchronization
     const handleStorage = (e) => {
       if (e.key === 'freshfetch_deleted_products' && e.newValue) {
         try {
@@ -474,6 +537,7 @@ export function AppProvider({ children }) {
     return () => {
       unsubscribeProducts();
       unsubscribeDeleted();
+      unsubscribeUsers();
       unsubscribeChats();
       if (syncBus) {
         syncBus.removeEventListener('message', handleSyncMessage);
@@ -501,7 +565,7 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Update User Profile (Details & Photo)
+  // Update User Profile (Details, Avatar, and Privacy Toggles)
   const updateUserProfile = (updatedFields) => {
     if (!currentUser) return;
     const updated = {
@@ -518,35 +582,35 @@ export function AppProvider({ children }) {
     // Sync to Cloud Firestore
     saveUserToCloud(updated);
 
-    // If user is a farmer, sync updated details and privacy toggles to all their products
+    // If user is a farmer, sync updated details, photo, and privacy toggles to all their products in state and cloud
     if (updated.role === 'producer') {
+      const productBulkUpdates = {
+        sellerAvatar: updated.avatar || '',
+        sellerName: updated.name || '',
+        sellerPhone: updated.phone || '',
+        sellerWhatsApp: updated.phone ? `91${updated.phone.replace(/\D/g, '')}` : '',
+        showWhatsApp: updated.showWhatsApp !== false,
+        showPhone: updated.showPhone !== false,
+        sellerLocation: updated.location || '',
+        farmName: updated.farmName || ''
+      };
+
       setProducts((prev) =>
-        prev.map((p) => {
-          if (p.sellerId === updated.id || (updated.phone && p.sellerPhone === updated.phone)) {
-            const updatedProd = {
+        (prev || []).map((p) => {
+          const pPhone = p.sellerPhone ? String(p.sellerPhone).replace(/\D/g, '').slice(-10) : '';
+          const uPhone = updated.phone ? String(updated.phone).replace(/\D/g, '').slice(-10) : '';
+          if (p.sellerId === updated.id || (uPhone && pPhone === uPhone)) {
+            return {
               ...p,
-              sellerName: updated.name || p.sellerName,
-              sellerPhone: updated.phone || p.sellerPhone,
-              sellerWhatsApp: updated.phone ? `91${updated.phone.replace(/\D/g, '')}` : p.sellerWhatsApp,
-              showWhatsApp: updated.showWhatsApp !== false,
-              showPhone: updated.showPhone !== false,
-              sellerLocation: updated.location || p.sellerLocation,
-              farmName: updated.farmName || p.farmName
+              ...productBulkUpdates
             };
-            updateProductInCloud(p.id, {
-              sellerName: updatedProd.sellerName,
-              sellerPhone: updatedProd.sellerPhone,
-              sellerWhatsApp: updatedProd.sellerWhatsApp,
-              showWhatsApp: updatedProd.showWhatsApp,
-              showPhone: updatedProd.showPhone,
-              sellerLocation: updatedProd.sellerLocation,
-              farmName: updatedProd.farmName
-            });
-            return updatedProd;
           }
           return p;
         })
       );
+
+      // Save bulk product update to Cloud Firestore
+      updateProductsBulkInCloud(updated.phone || updated.id, productBulkUpdates);
     }
   };
 
@@ -1073,6 +1137,40 @@ export function AppProvider({ children }) {
     sendChatMessageToCloud(chatId, newMsg, chatContext);
   };
 
+  // Delete an individual chat message in real time across Firestore and open tabs
+  const deleteChatMessage = (chatId, messageId) => {
+    if (!chatId || !messageId) return;
+
+    setChats((prev) =>
+      (prev || []).map((c) => {
+        if (c.id !== chatId) return c;
+        const updatedMsgs = (c.messages || []).filter((m) => m && m.id !== messageId);
+        const lastMsg = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1] : null;
+        return {
+          ...c,
+          messages: updatedMsgs,
+          lastMessage: lastMsg ? lastMsg.text : '',
+          lastMessageTime: lastMsg ? (lastMsg.time || '') : ''
+        };
+      })
+    );
+
+    setActiveChat((curr) => {
+      if (!curr || curr.id !== chatId) return curr;
+      const updatedMsgs = (curr.messages || []).filter((m) => m && m.id !== messageId);
+      const lastMsg = updatedMsgs.length > 0 ? updatedMsgs[updatedMsgs.length - 1] : null;
+      return {
+        ...curr,
+        messages: updatedMsgs,
+        lastMessage: lastMsg ? lastMsg.text : '',
+        lastMessageTime: lastMsg ? (lastMsg.time || '') : ''
+      };
+    });
+
+    // Delete in Cloud Firestore and broadcast
+    deleteChatMessageFromCloud(chatId, messageId);
+  };
+
   // Product Management Functions
   const addProduct = (newProduct) => {
     const shelfLifeDays = Number(newProduct.shelfLifeDays) || 180;
@@ -1095,6 +1193,7 @@ export function AppProvider({ children }) {
       processMedia: Array.isArray(newProduct.processMedia) ? newProduct.processMedia : [],
       sellerId: currentUser?.id || (currentUser?.phone ? `farmer-${currentUser.phone}` : `farmer-${Date.now()}`),
       sellerName: currentUser?.name || 'Local Verified Farmer',
+      sellerAvatar: currentUser?.avatar || '',
       sellerPhone: currentUser?.phone || '',
       sellerWhatsApp: currentUser?.phone ? `91${currentUser.phone.replace(/\D/g, '')}` : '',
       showWhatsApp: currentUser?.showWhatsApp !== false,
@@ -1360,6 +1459,8 @@ export function AppProvider({ children }) {
         openChatWithProduct,
         openChatById,
         sendMessage,
+        deleteChatMessage,
+        maskPhoneNumber,
         readInquiryIds,
         markFarmerLeadsAsRead,
         markChatAsRead,

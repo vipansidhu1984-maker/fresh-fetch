@@ -53,6 +53,7 @@ export function BuyerMarketplace() {
     role,
     setShowAddProductModal,
     registeredUsers,
+    maskPhoneNumber,
     t, 
     language 
   } = useApp();
@@ -513,21 +514,51 @@ export function BuyerMarketplace() {
                     </div>
                   )}
 
-                  {/* Producer Strip */}
-                  <div className="producer-info-strip">
-                    <div className="producer-avatar">
-                      {(product.sellerName || 'F').charAt(0)}
-                    </div>
-                    <div className="producer-meta">
-                      <div className="producer-name">
-                        <span>{(product.sellerName || 'Farmer').split('(')[0]}</span>
-                        {product.verified && <ShieldCheck size={13} color="var(--primary-emerald)" />}
+                  {/* Producer Strip with Live Profile Photo */}
+                  {(() => {
+                    const sellerUser = (registeredUsers || []).find(
+                      (u) =>
+                        (u.id && u.id === product.sellerId) ||
+                        (u.phone && (u.phone === product.sellerPhone || `91${u.phone}` === product.sellerWhatsApp))
+                    );
+                    const sellerAvatar = product.sellerAvatar || sellerUser?.avatar;
+
+                    return (
+                      <div className="producer-info-strip">
+                        <div 
+                          className="producer-avatar"
+                          style={{
+                            overflow: 'hidden',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#dcfce7',
+                            color: 'var(--primary-forest)'
+                          }}
+                        >
+                          {sellerAvatar ? (
+                            <img 
+                              src={sellerAvatar} 
+                              alt={product.sellerName} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          ) : (
+                            (product.sellerName || 'F').charAt(0)
+                          )}
+                        </div>
+                        <div className="producer-meta">
+                          <div className="producer-name">
+                            <span>{(product.sellerName || 'Farmer').split('(')[0]}</span>
+                            {product.verified && <ShieldCheck size={13} color="var(--primary-emerald)" />}
+                          </div>
+                          <div className="producer-location">
+                            📍 {product.sellerLocation}
+                          </div>
+                        </div>
                       </div>
-                      <div className="producer-location">
-                        📍 {product.sellerLocation}
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Actions: Primary In-App Chat + Secondary WhatsApp & Call (Honoring Farmer Privacy Toggles) */}
                   <div className="product-card-actions">
@@ -691,15 +722,47 @@ export function BuyerMarketplace() {
               </div>
 
               {/* Farmer Info */}
-              <div style={{ background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: '0.85rem', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <div className="producer-avatar">{(selectedProductDetail.sellerName || 'F').charAt(0)}</div>
-                  <div>
-                    <div style={{ fontWeight: '800', fontSize: '0.95rem' }}>{selectedProductDetail.sellerName || 'Farmer'}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>📍 {selectedProductDetail.sellerLocation} • {selectedProductDetail.farmName}</div>
+              {(() => {
+                const detailSellerUser = (registeredUsers || []).find(
+                  (u) =>
+                    (u.id && u.id === selectedProductDetail.sellerId) ||
+                    (u.phone && (u.phone === selectedProductDetail.sellerPhone || `91${u.phone}` === selectedProductDetail.sellerWhatsApp))
+                );
+                const detailAvatar = selectedProductDetail.sellerAvatar || detailSellerUser?.avatar;
+
+                return (
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', padding: '0.85rem', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div 
+                        className="producer-avatar"
+                        style={{
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: '#dcfce7',
+                          color: 'var(--primary-forest)'
+                        }}
+                      >
+                        {detailAvatar ? (
+                          <img 
+                            src={detailAvatar} 
+                            alt={selectedProductDetail.sellerName} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          (selectedProductDetail.sellerName || 'F').charAt(0)
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.95rem' }}>{selectedProductDetail.sellerName || 'Farmer'}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>📍 {selectedProductDetail.sellerLocation} • {selectedProductDetail.farmName}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Owner Action Panel OR Buyer Contact Options */}
               {isProductOwner(selectedProductDetail) ? (
@@ -872,7 +935,11 @@ export function BuyerMarketplace() {
                     (selectedProductDetail.reviews || []).map((rev) => (
                       <div key={rev.id} style={{ background: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{rev.reviewerName}</span>
+                          <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>
+                            {rev.reviewerName && /^\+?\d[\d\s-]{8,14}\d$/.test(String(rev.reviewerName).trim())
+                              ? maskPhoneNumber(rev.reviewerName)
+                              : (rev.reviewerName || 'Valued Buyer')}
+                          </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
                             {[...Array(5)].map((_, i) => (
                               <Star
