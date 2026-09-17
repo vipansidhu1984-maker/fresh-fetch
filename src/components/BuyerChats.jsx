@@ -87,15 +87,15 @@ export function BuyerChats() {
 
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', paddingBottom: '2rem' }}>
-      {/* Clean Aesthetic Hero Banner */}
-      <section className="clean-hero-card" style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', borderColor: '#bbf7d0', marginBottom: '1.25rem' }}>
+      {/* Clean Aesthetic Hero Banner with Rich Forest Theme */}
+      <section className="clean-hero-card" style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
-            <div className="hero-mini-tag" style={{ background: '#dcfce7', color: 'var(--primary-forest)' }}>
+            <div className="hero-mini-tag">
               <MessageSquare size={14} />
               <span>{language === 'hi' ? 'सीधे किसान संदेश' : language === 'pa' ? 'ਸਿੱਧੇ ਕਿਸਾਨ ਸੁਨੇਹੇ' : 'Direct Farmer Messages'}</span>
             </div>
-            <h1 className="hero-title-clean" style={{ color: 'var(--primary-forest)' }}>
+            <h1 className="hero-title-clean">
               {language === 'hi' ? (
                 <>किसान <span>चैट व बातचीत ({buyerChats.length})</span></>
               ) : language === 'pa' ? (
@@ -104,7 +104,7 @@ export function BuyerChats() {
                 <>Farmer <span>Chats & Inquiries ({buyerChats.length})</span></>
               )}
             </h1>
-            <p className="hero-sub-clean" style={{ color: '#166534' }}>
+            <p className="hero-sub-clean">
               {language === 'hi'
                 ? 'क्षेत्र के किसानों से सीधे जुड़े रहें, ताज़ा स्टॉक, डिलीवरी व शुद्धता पर सीधी बातचीत'
                 : language === 'pa'
@@ -114,9 +114,9 @@ export function BuyerChats() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <div className="trust-pill" style={{ background: '#ffffff', borderColor: '#86efac' }}>
-              <ShieldCheck size={16} color="var(--primary-emerald)" />
-              <span>100% Direct & Private</span>
+            <div className="trust-pill">
+              <ShieldCheck size={16} color="#4ade80" />
+              <span style={{ color: '#ffffff', fontWeight: '700' }}>100% Direct & Private</span>
             </div>
             {totalUnreadBuyerMessages > 0 && (
               <span style={{ fontSize: '0.8rem', color: '#ffffff', fontWeight: '800', background: '#ef4444', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)', boxShadow: 'var(--shadow-sm)' }}>
