@@ -10,7 +10,8 @@ import {
   ShoppingBag, 
   Tractor,
   Heart,
-  Settings
+  Settings,
+  Download
 } from 'lucide-react';
 
 export function Header() {
@@ -28,6 +29,8 @@ export function Header() {
     setActiveTab,
     wishlist,
     inquiries,
+    isAppInstalled,
+    setShowInstallModal,
     t 
   } = useApp();
 
@@ -95,6 +98,32 @@ export function Header() {
             <button className="auth-btn" onClick={() => setShowAuthModal(true)}>
               <User size={15} />
               <span>{t('loginTitle')}</span>
+            </button>
+          )}
+
+          {/* PWA Install Quick Button */}
+          {!isAppInstalled && (
+            <button
+              onClick={() => setShowInstallModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.4rem 0.75rem',
+                borderRadius: 'var(--radius-full)',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                transition: 'transform 0.2s'
+              }}
+              title={t('pwaInstallTitle') || 'Install App'}
+            >
+              <Download size={14} />
+              <span className="hidden sm:inline">{language === 'hi' ? 'ऐप डाउनलोड' : language === 'pa' ? 'ਐਪ ਡਾਊਨਲੋਡ' : 'Install'}</span>
             </button>
           )}
 

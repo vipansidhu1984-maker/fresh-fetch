@@ -13,6 +13,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { ChatModal } from './components/ChatModal';
 import { AuthModal } from './components/AuthModal';
+import PWAInstallModal from './components/PWAInstallModal';
 import { Footer } from './components/Footer';
 
 function MainLayout() {
@@ -27,6 +28,7 @@ function MainLayout() {
         <SettingsModal />
         <PrivacyPolicyModal />
         <AuthModal />
+        <PWAInstallModal />
         {/* Invisible Firebase Phone Auth reCAPTCHA mount */}
         <div id="recaptcha-container"></div>
       </div>
@@ -64,6 +66,7 @@ function MainLayout() {
       <PrivacyPolicyModal />
       <ChatModal />
       <AuthModal />
+      <PWAInstallModal />
 
       {/* Footer - shown only in Profile section to keep Market, Listings and Leads clean and simple */}
       {activeTab === 'profile' && <Footer />}

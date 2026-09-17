@@ -182,6 +182,116 @@ export function AppProvider({ children }) {
   const [selectedProductDetail, setSelectedProductDetail] = useState(null);
   const [showMakingMediaModal, setShowMakingMediaModal] = useState(null);
 
+  // PWA Installation & Promotion state
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                             window.navigator.standalone === true ||
+                             document.referrer.includes('android-app://') ||
+                             localStorage.getItem('freshfetch_pwa_installed') === 'true';
+        return !!isStandalone;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
+  // PWA Install Prompt Listener
+  useEffect(() => {
+    // Check display mode changes
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleDisplayModeChange = (e) => {
+      if (e.matches) {
+        setIsAppInstalled(true);
+        setShowInstallModal(false);
+      }
+    };
+    try {
+      mediaQuery.addEventListener('change', handleDisplayModeChange);
+    } catch {
+      // Ignore older browser compatibility
+    }
+
+    // Capture beforeinstallprompt event (Chrome, Edge, Samsung Internet, Android)
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      const dismissed = sessionStorage.getItem('freshfetch_pwa_dismissed');
+      if (!isStandalone && !dismissed) {
+        setTimeout(() => {
+          setShowInstallModal(true);
+        }, 1200);
+      }
+    };
+
+    // Listen for successful installation
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setShowInstallModal(false);
+      setDeferredInstallPrompt(null);
+      localStorage.setItem('freshfetch_pwa_installed', 'true');
+      console.log('🌱 Fresh Fetch PWA Installed successfully!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // If on iOS or mobile browser where beforeinstallprompt might not fire, also auto-show modal once per session
+    const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    const dismissed = sessionStorage.getItem('freshfetch_pwa_dismissed');
+    if (!isStandalone && !dismissed) {
+      const timer = setTimeout(() => {
+        setShowInstallModal(true);
+      }, 1800);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+        try {
+          mediaQuery.removeEventListener('change', handleDisplayModeChange);
+        } catch {}
+      };
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      try {
+        mediaQuery.removeEventListener('change', handleDisplayModeChange);
+      } catch {}
+    };
+  }, []);
+
+  const installPWA = async () => {
+    if (deferredInstallPrompt) {
+      try {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setIsAppInstalled(true);
+          setShowInstallModal(false);
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.6 }
+          });
+        }
+        setDeferredInstallPrompt(null);
+      } catch (err) {
+        console.warn('Install prompt error:', err);
+      }
+    } else {
+      // For iOS or browsers without native prompt, guide remains visible in modal
+      console.log('No deferred prompt available, showing instructions');
+    }
+  };
+
+
   // Sync Dark Mode to DOM and localStorage
   useEffect(() => {
     localStorage.setItem('freshfetch_dark', String(darkMode));
@@ -1468,6 +1578,11 @@ export function AppProvider({ children }) {
         sendFirebasePhoneOtp,
         verifyFirebasePhoneOtp,
         setupRecaptcha,
+        deferredInstallPrompt,
+        isAppInstalled,
+        showInstallModal,
+        setShowInstallModal,
+        installPWA,
         t
       }}
     >

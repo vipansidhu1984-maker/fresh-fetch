@@ -12,7 +12,9 @@ import {
   Check, 
   ChevronRight, 
   Sparkles,
-  Info
+  Info,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 export function SettingsModal() {
@@ -27,7 +29,9 @@ export function SettingsModal() {
     darkMode, 
     toggleDarkMode, 
     language, 
-    switchLanguage, 
+    switchLanguage,
+    isAppInstalled,
+    setShowInstallModal,
     t 
   } = useApp();
 
@@ -323,6 +327,45 @@ export function SettingsModal() {
               )}
             </button>
           </div>
+
+          {/* PWA Install Button in Settings */}
+          {!isAppInstalled && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <button
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  setShowInstallModal(true);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.9rem 1rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                  border: darkMode ? '1.5px solid #059669' : '1.5px solid #10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', background: '#10b981', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)' }}>
+                    <Download size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '800', fontSize: '0.92rem', color: darkMode ? '#f8fafc' : 'var(--text-primary)' }}>
+                      {language === 'hi' ? '📲 Fresh Fetch ऐप इंस्टॉल करें' : language === 'pa' ? '📲 Fresh Fetch ਐਪ ਇੰਸਟਾਲ ਕਰੋ' : '📲 Install Fresh Fetch App'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: darkMode ? '#94a3b8' : 'var(--text-muted)' }}>
+                      {language === 'hi' ? "होम स्क्रीन पर 1-टैप ऐप जोड़ें" : language === 'pa' ? "ਹੋਮ ਸਕ੍ਰੀਨ 'ਤੇ 1-ਟੈਪ ਐਪ ਸ਼ਾਮਲ ਕਰੋ" : "Add 1-tap app to your home screen"}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight size={18} color="#10b981" />
+              </button>
+            </div>
+          )}
 
           {/* 3. Dedicated Privacy Policy & Terms Button */}
           <div style={{ marginBottom: '0.75rem' }}>

@@ -231,7 +231,24 @@ export const translations = {
     unitLitre: "Litre",
     unitGram: "500g",
     unitPack: "Pack",
-    unitBox: "Box"
+    unitBox: "Box",
+
+    // PWA Install Prompt
+    pwaInstallTitle: "Install Fresh Fetch App",
+    pwaInstallSubtitle: "Direct farm shopping from Hanumangarh & Sri Ganganagar directly from your phone home screen!",
+    pwaInstallBadge: "Official Web App • Fast & 100% Free",
+    pwaFeature1: "Instant 1-Tap Home Screen Access",
+    pwaFeature2: "Real-time Direct Chat with Local Farmers",
+    pwaFeature3: "Ultra Lightweight (< 2 MB) & Battery Friendly",
+    pwaInstallBtn: "📲 Install Fresh Fetch App",
+    pwaContinueBrowser: "Continue in Browser",
+    pwaAlreadyInstalled: "App is already installed on your device",
+    pwaIosInstructionsTitle: "How to Install on iPhone / iPad:",
+    pwaIosStep1: "1. Tap the Share button (⎋ or [↑]) in Safari / Chrome toolbar",
+    pwaIosStep2: "2. Scroll down and tap 'Add to Home Screen' (➕)",
+    pwaIosStep3: "3. Tap 'Add' in the top-right corner to finish",
+    pwaAndroidTip: "Tap 'Install' to add Fresh Fetch directly to your phone.",
+    pwaInstallSuccess: "Fresh Fetch App Ready! Open from your home screen."
   },
 
   hi: {
@@ -463,7 +480,24 @@ export const translations = {
     unitLitre: "लीटर (L)",
     unitGram: "500 ग्राम",
     unitPack: "जार / पैक",
-    unitBox: "पेटी / डिब्बा"
+    unitBox: "पेटी / डिब्बा",
+
+    // PWA Install Prompt
+    pwaInstallTitle: "Fresh Fetch ऐप इंस्टॉल करें",
+    pwaInstallSubtitle: "हनुमानगढ़ व श्रीगंगानगर के खेतों से शुद्ध सामान खरीदने के लिए अपने फोन की होम स्क्रीन पर ऐप जोड़ें!",
+    pwaInstallBadge: "आधिकारिक ऐप • 100% मुफ़्त व तेज़",
+    pwaFeature1: "होम स्क्रीन से 1-टैप में तुरंत ऐप खुलेगा",
+    pwaFeature2: "किसानों से सीधी लाइव चैट व ताज़ा स्टॉक नोटिफिकेशन",
+    pwaFeature3: "सुपर लाइटवेट (< 2 MB) व शून्य स्टोरेज खपत",
+    pwaInstallBtn: "📲 Fresh Fetch ऐप इंस्टॉल करें",
+    pwaContinueBrowser: "ब्राउज़र में जारी रखें",
+    pwaAlreadyInstalled: "ऐप आपके फोन पर पहले से इंस्टॉल है",
+    pwaIosInstructionsTitle: "iPhone / iPad पर ऐप कैसे जोड़ें:",
+    pwaIosStep1: "1. नीचे शेयर बटन (⎋ या [↑]) पर टैप करें",
+    pwaIosStep2: "2. नीचे स्क्रॉल करके 'Add to Home Screen' (➕) पर टैप करें",
+    pwaIosStep3: "3. ऊपर दाएँ कोने में 'Add' पर टैप करके पूरा करें",
+    pwaAndroidTip: "ऊपर 'ऐप इंस्टॉल करें' बटन दबाएं, ऐप तुरंत आपके फोन में आ जाएगा।",
+    pwaInstallSuccess: "Fresh Fetch ऐप सफलतापूर्वक जुड़ गया! अब होम स्क्रीन से सीधे खोलें।"
   },
 
   pa: {
@@ -695,6 +729,23 @@ export const translations = {
     unitLitre: "ਲੀਟਰ (L)",
     unitGram: "500 ਗ੍ਰਾਮ",
     unitPack: "ਜਾਰ / ਪੈਕ",
-    unitBox: "ਪੇਟੀ / ਬਕਸਾ"
+    unitBox: "ਪੇਟੀ / ਬਕਸਾ",
+
+    // PWA Install Prompt
+    pwaInstallTitle: "Fresh Fetch ਐਪ ਇੰਸਟਾਲ ਕਰੋ",
+    pwaInstallSubtitle: "ਹਨੂਮਾਨਗੜ੍ਹ ਤੇ ਗੰਗਾਨਗਰ ਦੇ ਖੇਤਾਂ ਤੋਂ ਸ਼ੁੱਧ ਸਮਾਨ ਲਈ ਆਪਣੇ ਫ਼ੋਨ ਦੀ ਹੋਮ ਸਕ੍ਰੀਨ 'ਤੇ ਐਪ ਸ਼ਾਮਲ ਕਰੋ!",
+    pwaInstallBadge: "ਅਧਿਕਾਰਤ ਐਪ • 100% ਮੁਫ਼ਤ ਤੇ ਤੇਜ਼",
+    pwaFeature1: "ਹੋਮ ਸਕ੍ਰੀਨ ਤੋਂ 1-ਟੈਪ ਵਿੱਚ ਤੁਰੰਤ ਐਪ ਖੁੱਲ੍ਹੇਗੀ",
+    pwaFeature2: "ਕਿਸਾਨਾਂ ਨਾਲ ਸਿੱਧੀ ਲਾਈਵ ਚੈਟ ਤੇ ਤਾਜ਼ਾ ਸਟਾਕ ਅਲਰਟ",
+    pwaFeature3: "ਸੁਪਰ ਲਾਈਟਵੇਟ (< 2 MB) ਤੇ ਬੈਟਰੀ ਫਰੈਂਡਲੀ",
+    pwaInstallBtn: "📲 Fresh Fetch ਐਪ ਇੰਸਟਾਲ ਕਰੋ",
+    pwaContinueBrowser: "ਬ੍ਰਾਊਜ਼ਰ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ",
+    pwaAlreadyInstalled: "ਐਪ ਤੁਹਾਡੇ ਫ਼ੋਨ 'ਤੇ ਪਹਿਲਾਂ ਹੀ ਇੰਸਟਾਲ ਹੈ",
+    pwaIosInstructionsTitle: "iPhone / iPad 'ਤੇ ਐਪ ਕਿਵੇਂ ਸ਼ਾਮਲ ਕਰੀਏ:",
+    pwaIosStep1: "1. ਹੇਠਾਂ ਸ਼ੇਅਰ ਬਟਨ (⎋ ਜਾਂ [↑]) 'ਤੇ ਕਲਿੱਕ ਕਰੋ",
+    pwaIosStep2: "2. ਹੇਠਾਂ ਜਾ ਕੇ 'Add to Home Screen' (➕) ਚੁਣੋ",
+    pwaIosStep3: "3. ਉੱਪਰ ਸੱਜੇ ਪਾਸੇ 'Add' 'ਤੇ ਕਲਿੱਕ ਕਰੋ",
+    pwaAndroidTip: "ਉੱਪਰ 'ਐਪ ਇੰਸਟਾਲ ਕਰੋ' ਬਟਨ ਦਬਾਓ, ਐਪ ਤੁਰੰਤ ਤੁਹਾਡੇ ਫ਼ੋਨ ਵਿੱਚ ਆ ਜਾਵੇਗੀ।",
+    pwaInstallSuccess: "Fresh Fetch ਐਪ ਸਫ਼ਲਤਾਪੂਰਵਕ ਸ਼ਾਮਲ ਹੋ ਗਿਆ! ਹੁਣ ਹੋਮ ਸਕ੍ਰੀਨ ਤੋਂ ਸਿੱਧਾ ਖੋਲ੍ਹੋ।"
   }
 };
