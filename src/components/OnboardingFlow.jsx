@@ -216,10 +216,14 @@ export function OnboardingFlow() {
                 />
               </div>
               <div className="step-progress-labels">
-                <span>{language === 'hi' ? `चरण ${onboardingStep - 1} / 2` : `Step ${onboardingStep - 1} of 2`}</span>
                 <span>
-                  {onboardingStep === 2 && (language === 'hi' ? 'भूमिका चयन' : 'Choose Role')}
-                  {onboardingStep === 3 && (language === 'hi' ? 'खाता विवरण' : 'Account Details')}
+                  {language === 'hi' ? `चरण ${onboardingStep - 1} / 2` :
+                   language === 'pa' ? `ਕਦਮ ${onboardingStep - 1} / 2` :
+                   `Step ${onboardingStep - 1} of 2`}
+                </span>
+                <span>
+                  {onboardingStep === 2 && (language === 'hi' ? 'भूमिका चयन' : language === 'pa' ? 'ਰੋਲ ਚੋਣ' : 'Choose Role')}
+                  {onboardingStep === 3 && (language === 'hi' ? 'खाता विवरण' : language === 'pa' ? 'ਖਾਤਾ ਵੇਰਵਾ' : 'Account Details')}
                 </span>
               </div>
             </div>
@@ -295,47 +299,53 @@ export function OnboardingFlow() {
               <p className="step-sub-title">{t('step2Sub')}</p>
             </div>
 
-            <div className="role-select-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1.25rem' }}>
+            <div className="role-select-grid" style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginTop: '1.25rem' }}>
               {/* Buyer Choice */}
-              <div 
-                className="role-card"
+              <button 
+                type="button"
+                className="role-selection-card buyer-card"
                 onClick={() => selectRoleAndNext('buyer')}
-                style={{ cursor: 'pointer' }}
               >
-                <div className="role-card-icon-wrap" style={{ background: '#fef3c7', color: 'var(--accent-gold)' }}>
-                  <ShoppingBag size={28} />
+                <div className="role-icon-box" style={{ background: '#fef3c7', color: '#b45309', border: '1.5px solid #fde68a' }}>
+                  <ShoppingBag size={24} strokeWidth={2.3} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <h3 className="role-card-title">{t('buyerRoleTitle')}</h3>
-                  <p className="role-card-desc">{t('buyerRoleDesc')}</p>
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <div className="role-card-header-line">
+                    <span className="role-title-text">{t('buyerRoleTitle')}</span>
+                    <span className="role-tag-badge buyer">{t('buyerBadge')}</span>
+                  </div>
+                  <p className="role-desc-text">{t('buyerRoleDesc')}</p>
                 </div>
-                <ChevronRight size={20} color="var(--accent-gold)" />
-              </div>
+                <ChevronRight size={20} color="#d97706" style={{ flexShrink: 0, marginLeft: '0.25rem' }} />
+              </button>
 
               {/* Farmer Choice */}
-              <div 
-                className="role-card"
+              <button 
+                type="button"
+                className="role-selection-card seller-card"
                 onClick={() => selectRoleAndNext('producer')}
-                style={{ cursor: 'pointer' }}
               >
-                <div className="role-card-icon-wrap" style={{ background: '#dcfce7', color: 'var(--primary-forest)' }}>
-                  <Tractor size={28} />
+                <div className="role-icon-box" style={{ background: '#dcfce7', color: '#15803d', border: '1.5px solid #bbf7d0' }}>
+                  <Tractor size={24} strokeWidth={2.3} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <h3 className="role-card-title">{t('farmerRoleTitle')}</h3>
-                  <p className="role-card-desc">{t('farmerRoleDesc')}</p>
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <div className="role-card-header-line">
+                    <span className="role-title-text">{t('farmerRoleTitle')}</span>
+                    <span className="role-tag-badge seller">{t('producerBadge')}</span>
+                  </div>
+                  <p className="role-desc-text">{t('farmerRoleDesc')}</p>
                 </div>
-                <ChevronRight size={20} color="var(--primary-emerald)" />
-              </div>
+                <ChevronRight size={20} color="var(--primary-emerald)" style={{ flexShrink: 0, marginLeft: '0.25rem' }} />
+              </button>
             </div>
 
             <button 
+              type="button"
               className="btn-back-link" 
               onClick={() => setOnboardingStep(1)}
-              style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', width: '100%' }}
             >
               <ArrowLeft size={16} />
-              <span>{t('stepBack')} (Change Language)</span>
+              <span>{t('backChangeLanguage')}</span>
             </button>
           </div>
         )}
@@ -364,7 +374,7 @@ export function OnboardingFlow() {
                     boxShadow: step3Mode === 'register' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
                   }}
                 >
-                  ✨ {language === 'hi' ? 'नया खाता बनाएं' : 'Create Account'}
+                  ✨ {language === 'hi' ? 'नया खाता बनाएं' : language === 'pa' ? 'ਨਵਾਂ ਖਾਤਾ ਬਣਾਓ' : 'Create Account'}
                 </button>
                 <button
                   type="button"
@@ -382,7 +392,7 @@ export function OnboardingFlow() {
                     boxShadow: step3Mode === 'login' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
                   }}
                 >
-                  🔑 {language === 'hi' ? 'लॉगिन करें' : 'Sign In'}
+                  🔑 {language === 'hi' ? 'लॉगिन करें' : language === 'pa' ? 'ਲਾਗਇਨ ਕਰੋ' : 'Sign In'}
                 </button>
               </div>
             )}
@@ -395,7 +405,7 @@ export function OnboardingFlow() {
               </h2>
               <p className="step-sub-title">
                 {step3Mode === 'register' ? t('step3SubRegister') :
-                 step3Mode === 'forgot_password' ? (forgotStep === 1 ? t('identityVerificationSub') : (language === 'hi' ? 'नया सुरक्षित पासवर्ड सेट करें' : 'Set a new secure password')) :
+                 step3Mode === 'forgot_password' ? (forgotStep === 1 ? t('identityVerificationSub') : (language === 'hi' ? 'नया सुरक्षित पासवर्ड सेट करें' : language === 'pa' ? 'ਨਵਾਂ ਸੁਰੱਖਿਅਤ ਪਾਸਵਰਡ ਸੈੱਟ ਕਰੋ' : 'Set a new secure password')) :
                  t('step3SubLogin')}
               </p>
             </div>
@@ -545,7 +555,7 @@ export function OnboardingFlow() {
                 </div>
 
                 <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
-                  <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : 'Creating Account...') : (language === 'hi' ? 'खाता बनाएं' : 'Create Account')}</span>
+                  <span>{loading ? (language === 'hi' ? 'खाता बन रहा है...' : language === 'pa' ? 'ਖਾਤਾ ਬਣ ਰਿਹਾ ਹੈ...' : 'Creating Account...') : (language === 'hi' ? 'खाता बनाएं' : language === 'pa' ? 'ਖਾਤਾ ਬਣਾਓ' : 'Create Account')}</span>
                   <ArrowRight size={18} />
                 </button>
               </form>
@@ -602,7 +612,7 @@ export function OnboardingFlow() {
                 </div>
 
                 <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
-                  <span>{loading ? (language === 'hi' ? 'लॉगिन हो रहा है...' : 'Logging in...') : (language === 'hi' ? 'लॉगिन करें' : 'Login')}</span>
+                  <span>{loading ? (language === 'hi' ? 'लॉगिन हो रहा है...' : language === 'pa' ? 'ਲਾਗਇਨ ਹੋ ਰਿਹਾ ਹੈ...' : 'Logging in...') : (language === 'hi' ? 'लॉगिन करें' : language === 'pa' ? 'ਲਾਗਇਨ ਕਰੋ' : 'Login')}</span>
                   <ArrowRight size={18} />
                 </button>
               </form>
@@ -634,7 +644,7 @@ export function OnboardingFlow() {
 
                     {/* Registered Full Name */}
                     <div className="form-group">
-                      <label className="form-label">{t('fullNameLabel')} ({language === 'hi' ? 'पंजीकृत नाम' : 'Registered'}) *</label>
+                      <label className="form-label">{t('fullNameLabel')} ({language === 'hi' ? 'पंजीकृत नाम' : language === 'pa' ? 'ਰਜਿਸਟਰਡ ਨਾਮ' : 'Registered'}) *</label>
                       <div className="input-with-icon">
                         <User size={18} className="field-icon" />
                         <input
@@ -650,7 +660,7 @@ export function OnboardingFlow() {
 
                     {/* Registered Date of Birth */}
                     <div className="form-group">
-                      <label className="form-label">{t('dobLabel')} ({language === 'hi' ? 'पंजीकृत जन्म तिथि' : 'Registered'}) *</label>
+                      <label className="form-label">{t('dobLabel')} ({language === 'hi' ? 'पंजीकृत जन्म तिथि' : language === 'pa' ? 'ਰਜਿਸਟਰਡ ਜਨਮ ਮਿਤੀ' : 'Registered'}) *</label>
                       <div className="input-with-icon">
                         <Calendar size={18} className="field-icon" />
                         <input
@@ -665,7 +675,7 @@ export function OnboardingFlow() {
 
                     <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
                       <ShieldCheck size={18} />
-                      <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : 'Verifying...') : t('verifyIdentityBtn')}</span>
+                      <span>{loading ? (language === 'hi' ? 'सत्यापित हो रहा है...' : language === 'pa' ? 'ਤਸਦੀਕ ਹੋ ਰਿਹਾ ਹੈ...' : 'Verifying...') : t('verifyIdentityBtn')}</span>
                     </button>
                   </form>
                 )}
@@ -714,7 +724,7 @@ export function OnboardingFlow() {
 
                     <button type="submit" className="btn-primary" style={{ marginTop: '0.75rem' }} disabled={loading}>
                       <KeyRound size={18} />
-                      <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : 'Updating...') : t('resetPassword')}</span>
+                      <span>{loading ? (language === 'hi' ? 'पासवर्ड बदल रहा है...' : language === 'pa' ? 'ਪਾਸਵਰਡ ਬਦਲ ਰਿਹਾ ਹੈ...' : 'Updating...') : t('resetPassword')}</span>
                     </button>
                   </form>
                 )}
@@ -722,7 +732,7 @@ export function OnboardingFlow() {
             )}
 
             {/* Bottom Toggle Between Register and Login */}
-            <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)' }}>
+            <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
               {step3Mode === 'register' ? (
                 <button
                   type="button"
@@ -740,6 +750,16 @@ export function OnboardingFlow() {
                   ← {t('dontHaveAccount')}
                 </button>
               )}
+
+              <button 
+                type="button"
+                className="btn-back-link" 
+                onClick={() => { setAuthError(''); setStep3Mode('register'); setOnboardingStep(2); }}
+                style={{ marginTop: '0.25rem', fontSize: '0.8rem', padding: '0.45rem 0.9rem' }}
+              >
+                <ArrowLeft size={14} />
+                <span>{language === 'hi' ? 'भूमिका बदलें (Back)' : language === 'pa' ? 'ਰੋਲ ਬਦਲੋ (Back)' : 'Change Role (Back)'}</span>
+              </button>
             </div>
           </div>
         )}

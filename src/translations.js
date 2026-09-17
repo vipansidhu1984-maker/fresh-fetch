@@ -20,8 +20,14 @@ export const translations = {
     step4Sub: "Enter the OTP code sent to your phone",
     stepNext: "Continue",
     stepBack: "Back",
+    changeLanguage: "Change Language",
+    backChangeLanguage: "Back (Change Language)",
     
     // Roles
+    buyerRoleTitle: "Consumer / Buyer",
+    buyerRoleDesc: "Buy 100% pure & chemical-free food directly from local farmers",
+    farmerRoleTitle: "Farmer / Seller",
+    farmerRoleDesc: "Sell pure farm produce directly at fair rates with 0% fee",
     roleProducer: "Farmer / Seller (किसान)",
     roleProducerSub: "Sell pure farm produce directly at fair rates with 0% fee",
     roleBuyer: "Consumer / Buyer (ग्राहक)",
@@ -246,8 +252,14 @@ export const translations = {
     step4Sub: "मोबाइल पर आया OTP कोड दर्ज करें",
     stepNext: "आगे बढ़ें",
     stepBack: "पीछे",
+    changeLanguage: "भाषा बदलें",
+    backChangeLanguage: "वापस (भाषा बदलें)",
     
     // Roles
+    buyerRoleTitle: "ग्राहक / खरीदार (Buyer)",
+    buyerRoleDesc: "100% शुद्ध देसी घी, मसाले और तेल सीधे किसानों से मंगवाएं",
+    farmerRoleTitle: "किसान / विक्रेता (Farmer)",
+    farmerRoleDesc: "खेत और घर का शुद्ध सामान बिना दलाली सीधे अच्छे दामों पर बेचें",
     roleProducer: "किसान / उत्पादक (Seller)",
     roleProducerSub: "खेत और घर का शुद्ध सामान बिना दलाली सीधे अच्छे दामों पर बेचें",
     roleBuyer: "ग्राहक / खरीदार (Buyer)",
@@ -472,8 +484,14 @@ export const translations = {
     step4Sub: "ਮੋਬਾਈਲ 'ਤੇ ਆਇਆ OTP ਕੋਡ ਦਰਜ ਕਰੋ",
     stepNext: "ਅੱਗੇ ਵਧੋ",
     stepBack: "ਪਿੱਛੇ",
+    changeLanguage: "ਭਾਸ਼ਾ ਬਦਲੋ",
+    backChangeLanguage: "ਵਾਪਸ (ਭਾਸ਼ਾ ਬਦਲੋ)",
     
     // Roles
+    buyerRoleTitle: "ਗਾਹਕ / ਖਰੀਦਦਾਰ (Buyer)",
+    buyerRoleDesc: "100% ਸ਼ੁੱਧ ਦੇਸੀ ਘਿਓ, ਮਸਾਲੇ ਅਤੇ ਤੇਲ ਸਿੱਧਾ ਕਿਸਾਨਾਂ ਤੋਂ ਮੰਗਵਾਓ",
+    farmerRoleTitle: "ਕਿਸਾਨ / ਵਿਕਰੇਤਾ (Farmer)",
+    farmerRoleDesc: "ਖੇਤ ਅਤੇ ਘਰ ਦਾ ਸ਼ੁੱਧ ਸਮਾਨ ਬਿਨਾਂ ਦਲਾਲੀ ਸਿੱਧਾ ਵੇਚੋ",
     roleProducer: "ਕਿਸਾਨ / ਉਤਪਾਦਕ (Seller)",
     roleProducerSub: "ਖੇਤ ਅਤੇ ਘਰ ਦਾ ਸ਼ੁੱਧ ਸਮਾਨ ਬਿਨਾਂ ਦਲਾਲੀ ਸਿੱਧਾ ਵੇਚੋ",
     roleBuyer: "ਗਾਹਕ / ਖਰੀਦਦਾਰ (Buyer)",
